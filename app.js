@@ -14,6 +14,9 @@ let refreshTimer = null;
 let countdownInterval = null;
 let candleCloseTime = null;
 let lastResult = null;
+let activeTrade = null;       // { direction, entryPrice, entryTime, leverage, tradeSize, stopLoss }
+let monitorInterval = null;   // 30s interval when trade is open
+let lastCandles = null;       // cache last fetched candles
 
 // ============================================================
 // MATH HELPERS
@@ -441,6 +444,293 @@ function analyzeSignal(candles, capital) {
 }
 
 // ============================================================
+// EXIT SIGNAL ANALYSIS  (Jaime Merino "patrones de salida")
+// ============================================================
+
+function analyzeExitSignals(candles, trade) {
+  const closes = candles.map(c => c.close);
+  const current = closes[closes.length - 1];
+  const isLong  = trade.direction === 'long';
+
+  // Indicators
+  const ema10arr = calcEMA(closes, 10);
+  const ema55arr = calcEMA(closes, 55);
+  const adxArr   = calcADX(candles, 14);
+  const sqzArr   = calcSqueeze(candles, 20);
+
+  const ema10 = ema10arr[ema10arr.length - 1];
+  const ema55 = ema55arr[ema55arr.length - 1];
+
+  const adxValid = adxArr.filter(v => v !== null);
+  const adx      = adxValid[adxValid.length - 1] ?? null;
+  const adxPrev  = adxValid[adxValid.length - 2] ?? null;
+  const adxPrev2 = adxValid[adxValid.length - 3] ?? null;
+
+  const sqz  = sqzArr[sqzArr.length - 1];
+  const sqzP = sqzArr[sqzArr.length - 2];
+  const sqzP2= sqzArr[sqzArr.length - 3];
+
+  // ── SQUEEZE exit signals ───────────────────────────────────
+  // "La montaña se vuelve transparente" = histogram shrinking
+  const sqzShrinking1  = sqzP  && Math.abs(sqz.val)  < Math.abs(sqzP.val);
+  const sqzShrinking2  = sqzP2 && Math.abs(sqzP.val) < Math.abs(sqzP2.val);
+  const sqzConsecWeak  = sqzShrinking1 && sqzShrinking2;  // 2 bars shrinking = warning
+  // Direction flipped = immediate exit
+  const sqzFlipped     = isLong ? sqz.val < 0 : sqz.val > 0;
+  // Peak: was expanding, now shrinking
+  const sqzPeaked      = sqzShrinking1 && sqzP2 && Math.abs(sqzP.val) > Math.abs(sqzP2.val);
+
+  // ── ADX exit signals ────────────────────────────────────────
+  // "Slope is king" — falling = exit
+  const adxFalling1    = adx !== null && adxPrev !== null && adx < adxPrev;
+  const adxFalling2    = adxPrev !== null && adxPrev2 !== null && adxPrev < adxPrev2;
+  const adxConsecFall  = adxFalling1 && adxFalling2;
+  const adxFlat        = adx !== null && adxPrev !== null && Math.abs(adx - adxPrev) < 0.5;
+  const adxWeak        = adx !== null && adx < 23;
+
+  // ── EMA exit signals ────────────────────────────────────────
+  const brokeEMA10  = isLong ? current < ema10  : current > ema10;
+  const brokeEMA55  = isLong ? current < ema55  : current > ema55;  // major violation
+
+  // ── STOP LOSS HIT ────────────────────────────────────────────
+  const hitSL = isLong ? current <= trade.stopLoss : current >= trade.stopLoss;
+
+  // ── P&L CALCULATION ─────────────────────────────────────────
+  const priceDiff    = isLong
+    ? current - trade.entryPrice
+    : trade.entryPrice - current;
+  const pctMove      = priceDiff / trade.entryPrice;
+  const unrealizedPnL = trade.tradeSize * trade.leverage * pctMove;
+  const unrealizedPct = pctMove * 100;
+
+  // ── R:R reached? ─────────────────────────────────────────────
+  const rr1hit = Math.abs(pctMove) >= 0.14;  // 1:2 (partial scale out level)
+  const rr2hit = Math.abs(pctMove) >= 0.21;  // 1:3 (second target)
+
+  // ── BUILD EXIT STATUS ────────────────────────────────────────
+  const tips = [];
+  let status = 'HOLD'; // HOLD | WATCH | CAUTION | EXIT
+
+  // Critical exits — override everything
+  if (hitSL) {
+    status = 'EXIT';
+    tips.push({ level: 'exit', text: `🔴 STOP LOSS HIT at $${fmt(trade.stopLoss)} — close now to protect capital` });
+  }
+  if (sqzFlipped) {
+    status = 'EXIT';
+    tips.push({ level: 'exit', text: `🔴 Squeeze histogram flipped ${isLong ? 'bearish (red)' : 'bullish (green)'} — "la montaña cambió de color", EXIT now` });
+  }
+  if (brokeEMA55 && !hitSL) {
+    status = 'EXIT';
+    tips.push({ level: 'exit', text: `🔴 Price broke ${isLong ? 'below' : 'above'} EMA55 — major structure violation, EXIT immediately` });
+  }
+
+  // Caution signals
+  if (sqzConsecWeak && status !== 'EXIT') {
+    status = 'CAUTION';
+    tips.push({ level: 'caution', text: `⚠️ Squeeze histogram shrinking for 2+ bars in a row — momentum peak may be in. Scale out 30–50% now, trail the rest` });
+  } else if (sqzPeaked && status !== 'EXIT') {
+    if (status === 'HOLD') status = 'WATCH';
+    tips.push({ level: 'watch', text: `👁 Squeeze histogram just started shrinking after peak — first warning, monitor closely` });
+  }
+
+  if (adxConsecFall && status !== 'EXIT') {
+    if (status === 'HOLD' || status === 'WATCH') status = 'CAUTION';
+    tips.push({ level: 'caution', text: `⚠️ ADX falling for 2+ consecutive bars (now ${adx?.toFixed(1)}) — trend losing strength (Merino: "cuando el ADX muestra debilidad")` });
+  } else if (adxFalling1 && adxWeak && status !== 'EXIT') {
+    if (status === 'HOLD') status = 'WATCH';
+    tips.push({ level: 'watch', text: `👁 ADX falling and below 23 (${adx?.toFixed(1)}) — trend weakening, move SL to breakeven` });
+  } else if (adxFlat && status !== 'EXIT') {
+    if (status === 'HOLD') status = 'WATCH';
+    tips.push({ level: 'watch', text: `👁 ADX flat — trend in consolidation, not ideal for new runners but existing position may continue` });
+  }
+
+  if (brokeEMA10 && !brokeEMA55 && status !== 'EXIT') {
+    if (status === 'HOLD') status = 'WATCH';
+    tips.push({ level: 'watch', text: `👁 Price ${isLong ? 'below' : 'above'} EMA10 — dynamic support broken, consider tightening trailing stop` });
+  }
+
+  // R:R tips
+  if (rr2hit && pctMove > 0) {
+    tips.push({ level: 'hold', text: `💰 1:3 R/R target reached (+${unrealizedPct.toFixed(1)}%). Consider closing 50–70% of position and trailing the rest with EMA10` });
+  } else if (rr1hit && pctMove > 0) {
+    tips.push({ level: 'hold', text: `💰 1:2 R/R reached (+${unrealizedPct.toFixed(1)}%). Merino says: scale out 30–50%, move SL to breakeven, let the runner go` });
+  }
+
+  // Hold tips when everything is good
+  if (status === 'HOLD') {
+    if (sqz.sqzOn) {
+      tips.push({ level: 'hold', text: `🔵 New squeeze forming — market coiling again. May be a pause before next leg. Hold with current stop` });
+    } else {
+      tips.push({ level: 'hold', text: `✅ Squeeze histogram ${isLong ? 'green and expanding' : 'red and expanding'} — momentum is strong, let it run` });
+    }
+    if (!adxFalling1) {
+      tips.push({ level: 'hold', text: `✅ ADX rising (${adx?.toFixed(1)}) — trend gaining strength, no exit signal yet` });
+    }
+    tips.push({ level: 'hold', text: `✅ Price ${isLong ? 'above' : 'below'} EMA10 ($${fmt(ema10)}) and EMA55 ($${fmt(ema55)}) — structure intact` });
+    tips.push({ level: 'hold', text: `💡 Trail stop to previous swing ${isLong ? 'low' : 'high'} or use EMA10 as dynamic stop as trade develops` });
+  }
+
+  const statusLabels = {
+    HOLD:    '✅ HOLD — All signals positive, let the trade run',
+    WATCH:   '👁 WATCH — One signal weakening, monitor closely',
+    CAUTION: '⚠️ CAUTION — Multiple weakening signals, prepare to scale out',
+    EXIT:    '🔴 EXIT NOW — Critical signal triggered',
+  };
+
+  return {
+    status,
+    statusLabel: statusLabels[status],
+    tips,
+    current, unrealizedPnL, unrealizedPct,
+    ema10, ema55, adx,
+    sqzVal: sqz.val, sqzOn: sqz.sqzOn,
+    hitSL, rr1hit, rr2hit,
+  };
+}
+
+// ============================================================
+// TRADE ENTRY / EXIT
+// ============================================================
+
+function enterTrade() {
+  if (!lastResult || lastResult.signal === 'WAIT') return;
+
+  activeTrade = {
+    direction:  lastResult.direction,
+    entryPrice: lastResult.currentPrice,
+    entryTime:  Date.now(),
+    leverage:   lastResult.leverage,
+    tradeSize:  lastResult.tradeSize,
+    stopLoss:   lastResult.stopLoss,
+  };
+  saveTrade();
+  startTradeMonitor();
+  showTradeMonitor();
+
+  // Hide the Enter button
+  el('enter-trade-wrap').style.display = 'none';
+}
+
+function closeTrade() {
+  activeTrade = null;
+  localStorage.removeItem('myCFO_activeTrade');
+  stopTradeMonitor();
+  el('trade-monitor').style.display = 'none';
+  // Restore Enter button if signal is still active
+  if (lastResult && lastResult.signal !== 'WAIT') {
+    showEnterButton(lastResult.signal);
+  }
+}
+
+function saveTrade() {
+  localStorage.setItem('myCFO_activeTrade', JSON.stringify(activeTrade));
+}
+
+function loadTrade() {
+  try {
+    const saved = localStorage.getItem('myCFO_activeTrade');
+    if (saved) activeTrade = JSON.parse(saved);
+  } catch (e) { activeTrade = null; }
+}
+
+// ============================================================
+// TRADE MONITOR UI
+// ============================================================
+
+function showEnterButton(signal) {
+  const wrap = el('enter-trade-wrap');
+  const btn  = el('enter-trade-btn');
+  wrap.style.display = 'flex';
+  btn.textContent = signal === 'LONG'
+    ? '⬆ Enter LONG at Market Price'
+    : '⬇ Enter SHORT at Market Price';
+  btn.className = 'enter-trade-btn' + (signal === 'SHORT' ? ' short-btn' : '');
+}
+
+function showTradeMonitor() {
+  if (!activeTrade) return;
+  const monitor = el('trade-monitor');
+  monitor.style.display = 'block';
+  monitor.className = `trade-monitor monitor-${activeTrade.direction}`;
+  el('monitor-badge').textContent = activeTrade.direction === 'long' ? 'LONG ACTIVE' : 'SHORT ACTIVE';
+  el('monitor-badge').className   = `monitor-badge${activeTrade.direction === 'short' ? ' short' : ''}`;
+  el('monitor-entry-price').textContent = '$' + fmt(activeTrade.entryPrice);
+  el('monitor-sl').textContent          = '$' + fmt(activeTrade.stopLoss);
+  el('monitor-lev').textContent         = activeTrade.leverage + '×';
+}
+
+function updateTradeMonitorUI(exit) {
+  if (!activeTrade) return;
+
+  // Since
+  const secAgo = Math.floor((Date.now() - activeTrade.entryTime) / 1000);
+  const minAgo = Math.floor(secAgo / 60);
+  const hrsAgo = Math.floor(minAgo / 60);
+  el('monitor-since').textContent = hrsAgo > 0
+    ? `Entered ${hrsAgo}h ${minAgo % 60}m ago`
+    : `Entered ${minAgo}m ago`;
+
+  // Current price
+  el('monitor-current-price').textContent = '$' + fmt(exit.current);
+
+  // P&L
+  const pnlEl  = el('monitor-pnl');
+  const pctEl  = el('monitor-pnl-pct');
+  const isProfit = exit.unrealizedPnL >= 0;
+  pnlEl.textContent = (isProfit ? '+' : '') + fmtUSD(exit.unrealizedPnL);
+  pnlEl.className   = 'monitor-pnl-value ' + (isProfit ? 'profit' : 'loss');
+  pctEl.textContent = (isProfit ? '+' : '') + exit.unrealizedPct.toFixed(2) + '%  (pos. move)';
+  pctEl.className   = 'monitor-pnl-pct ' + (isProfit ? 'profit' : 'loss');
+
+  // Exit status bar
+  const bar = el('exit-status-bar');
+  bar.className = `exit-status-bar status-${exit.status.toLowerCase()}`;
+  el('exit-status-text').textContent = exit.statusLabel;
+
+  // Tips
+  const tipsList = el('exit-tips-list');
+  tipsList.innerHTML = '';
+  exit.tips.forEach(t => {
+    const div = document.createElement('div');
+    div.className = `exit-tip tip-${t.level}`;
+    div.textContent = t.text;
+    tipsList.appendChild(div);
+  });
+
+  // Last check time
+  el('monitor-last-check').textContent =
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ============================================================
+// MONITOR INTERVAL (30 seconds)
+// ============================================================
+
+function startTradeMonitor() {
+  stopTradeMonitor();
+  monitorInterval = setInterval(async () => {
+    if (!activeTrade) { stopTradeMonitor(); return; }
+    try {
+      const candles = await fetchCandles();
+      lastCandles   = candles;
+      const exit    = analyzeExitSignals(candles, activeTrade);
+      updateTradeMonitorUI(exit);
+      // Auto-close message if stop loss hit
+      if (exit.hitSL) {
+        el('exit-status-text').textContent = '🔴 STOP LOSS HIT — Close this trade now!';
+      }
+    } catch (e) {
+      console.warn('Monitor refresh error:', e);
+    }
+  }, 30000);
+}
+
+function stopTradeMonitor() {
+  if (monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
+}
+
+// ============================================================
 // FETCH CANDLES — Bitfinex with Binance fallback
 // ============================================================
 
@@ -609,6 +899,19 @@ function updateUI(r, capital) {
   // Indicators
   renderIndicators(r);
 
+  // Enter Trade button — show only when signal active and no open trade
+  if (r.signal !== 'WAIT' && !activeTrade) {
+    showEnterButton(r.signal);
+  } else {
+    el('enter-trade-wrap').style.display = 'none';
+  }
+
+  // If trade is open, refresh the monitor too
+  if (activeTrade && lastCandles) {
+    const exit = analyzeExitSignals(lastCandles, activeTrade);
+    updateTradeMonitorUI(exit);
+  }
+
   // Time
   el('last-update').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -671,6 +974,7 @@ async function run() {
 
   try {
     const candles = await fetchCandles();
+    lastCandles   = candles;
     lastResult    = analyzeSignal(candles, capital);
     updateUI(lastResult, capital);
     startCountdown();
@@ -717,4 +1021,9 @@ el('capital-input').addEventListener('change', () => {
 // ============================================================
 // BOOT
 // ============================================================
+loadTrade();                  // restore any open trade from localStorage
+if (activeTrade) {
+  showTradeMonitor();
+  startTradeMonitor();
+}
 run();
