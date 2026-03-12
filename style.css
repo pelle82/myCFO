@@ -351,7 +351,20 @@ html, body {
 }
 .param-value.accent  { color: var(--accent); }
 .param-value.danger  { color: var(--danger); }
-.param-value.success { color: var(--success); font-size: 13px; font-weight: 600; }
+.param-value.success { color: var(--success); }
+.param-value.profit  { color: var(--long); font-size: 20px; }
+
+.param-sublabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.profit-card {
+  border-color: var(--long-border);
+  background: var(--long-dim);
+}
 
 /* ============================================================
    CONDITIONS

@@ -371,10 +371,15 @@ function analyzeSignal(candles, capital) {
   // — Trade parameters —
   const tradeSize  = capital * 0.10;
   const slPct      = 0.07;
+  const tpPct      = 0.14; // 2:1 risk/reward
   const stopLoss   = direction === 'long'
     ? current * (1 - slPct)
     : current * (1 + slPct);
-  const maxLoss    = tradeSize * slPct;
+  const takeProfit = direction === 'long'
+    ? current * (1 + tpPct)
+    : current * (1 - tpPct);
+  const maxLoss        = tradeSize * slPct;
+  const estimatedProfit = tradeSize * leverage * tpPct;
 
   // — Reason text —
   let subtitle = '';
@@ -390,7 +395,7 @@ function analyzeSignal(candles, capital) {
     signal, direction, metCount, leverage,
     conditions,
     currentPrice: current, prevClose: prev,
-    tradeSize, stopLoss, maxLoss, slPct,
+    tradeSize, stopLoss, takeProfit, maxLoss, estimatedProfit, slPct, tpPct,
     ema50, ema100, ema200,
     rsi, adx, adxPrev,
     bb, sqz, poc: vp.poc,
@@ -544,8 +549,20 @@ function updateUI(r, capital) {
   el('param-trade-size').textContent = showTrade ? fmtUSD(r.tradeSize) : '—';
   el('param-leverage').textContent   = showTrade ? `${r.leverage}×`   : '—';
   el('param-entry').textContent      = showTrade ? '$' + fmt(r.currentPrice) : '—';
-  el('param-stoploss').textContent   = showTrade ? '$' + fmt(r.stopLoss)     : '—';
-  el('param-maxloss').textContent    = showTrade ? fmtUSD(r.maxLoss)         : '—';
+  el('param-stoploss').textContent   = showTrade ? '$' + fmt(r.stopLoss)         : '—';
+  el('param-maxloss').textContent    = showTrade ? fmtUSD(r.maxLoss)             : '—';
+
+  // Take Profit
+  el('param-tp').textContent         = showTrade ? '$' + fmt(r.takeProfit)        : '—';
+  el('param-tp-pct').textContent     = showTrade
+    ? `+${(r.tpPct * 100).toFixed(0)}% desde entrada (2:1 R/R)`
+    : '';
+
+  // Estimated Profit
+  el('param-profit').textContent     = showTrade ? fmtUSD(r.estimatedProfit)      : '—';
+  el('param-profit-detail').textContent = showTrade
+    ? `$${fmt(r.tradeSize)} × ${r.leverage}x × ${(r.tpPct * 100).toFixed(0)}%`
+    : '';
 
   // Conditions
   renderConditions(r.conditions, r.direction);
@@ -641,12 +658,19 @@ el('capital-input').addEventListener('change', () => {
     const capital     = parseFloat(el('capital-input').value) || 5000;
     const candles_placeholder = null;
     // Recalculate trade params with new capital
-    const tradeSize = capital * 0.10;
-    const maxLoss   = tradeSize * lastResult.slPct;
-    lastResult.tradeSize = tradeSize;
-    lastResult.maxLoss   = maxLoss;
-    el('param-trade-size').textContent = lastResult.signal !== 'WAIT' ? fmtUSD(tradeSize) : '—';
-    el('param-maxloss').textContent    = lastResult.signal !== 'WAIT' ? fmtUSD(maxLoss)   : '—';
+    const tradeSize       = capital * 0.10;
+    const maxLoss         = tradeSize * lastResult.slPct;
+    const estimatedProfit = tradeSize * lastResult.leverage * lastResult.tpPct;
+    lastResult.tradeSize       = tradeSize;
+    lastResult.maxLoss         = maxLoss;
+    lastResult.estimatedProfit = estimatedProfit;
+    const show = lastResult.signal !== 'WAIT';
+    el('param-trade-size').textContent    = show ? fmtUSD(tradeSize)       : '—';
+    el('param-maxloss').textContent       = show ? fmtUSD(maxLoss)         : '—';
+    el('param-profit').textContent        = show ? fmtUSD(estimatedProfit) : '—';
+    el('param-profit-detail').textContent = show
+      ? `$${fmt(tradeSize)} × ${lastResult.leverage}x × ${(lastResult.tpPct * 100).toFixed(0)}%`
+      : '';
   }
 });
 
