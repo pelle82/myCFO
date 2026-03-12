@@ -252,143 +252,180 @@ function analyzeSignal(candles, capital) {
   const current = closes[closes.length - 1];
   const prev    = closes[closes.length - 2];
 
-  // — Calculate all indicators —
-  const ema50arr  = calcEMA(closes, 50);
-  const ema100arr = calcEMA(closes, 100);
+  // ── INDICATORS ──────────────────────────────────────────────
+  // Core EMAs per Jaime Merino: EMA10 (fast) + EMA55 (slow bias)
+  // EMA200 kept as macro context only
+  const ema10arr  = calcEMA(closes, 10);
+  const ema55arr  = calcEMA(closes, 55);
   const ema200arr = calcEMA(closes, 200);
   const rsiArr    = calcRSI(closes, 14);
   const adxArr    = calcADX(candles, 14);
   const bbArr     = calcBB(closes, 20, 2);
-  const sqzArr    = calcSqueeze(candles, 20);
+  const sqzArr    = calcSqueeze(candles, 20);   // BB(20,2) inside KC(20,1.5)
   const vp        = calcVolumeProfile(candles.slice(-100));
 
-  // — Latest values —
-  const ema50  = ema50arr[ema50arr.length - 1];
-  const ema100 = ema100arr[ema100arr.length - 1];
+  // Latest values
+  const ema10  = ema10arr[ema10arr.length - 1];
+  const ema55  = ema55arr[ema55arr.length - 1];
   const ema200 = ema200arr[ema200arr.length - 1];
   const rsi    = rsiArr[rsiArr.length - 1];
   const bb     = bbArr[bbArr.length - 1];
-  const sqz    = sqzArr[sqzArr.length - 1];
-  const sqzP   = sqzArr[sqzArr.length - 2];
 
-  // ADX: get last two valid values
+  // Last 4 squeeze bars to detect recent fire
+  const sqzRecent = sqzArr.slice(-4);
+  const sqz       = sqzRecent[sqzRecent.length - 1];
+  const sqzP      = sqzRecent[sqzRecent.length - 2];
+
+  // ADX: last two valid values
   const adxValid = adxArr.filter(v => v !== null);
-  const adx      = adxValid[adxValid.length - 1]  ?? null;
-  const adxPrev  = adxValid[adxValid.length - 2]  ?? null;
+  const adx      = adxValid[adxValid.length - 1] ?? null;
+  const adxPrev  = adxValid[adxValid.length - 2] ?? null;
 
-  // — Determine macro trend direction —
-  const trendLong  = ema50 > ema200;
-  const trendShort = ema50 < ema200;
-  const direction  = trendLong ? 'long' : 'short';
+  // ── TREND DIRECTION from EMA10 vs EMA55 ─────────────────────
+  // Rule: EMA10 > EMA55 = bullish bias. Price must be above EMA55 for long.
+  const emaBullish = ema10 > ema55;
+  const emaBearish = ema10 < ema55;
+  const direction  = emaBullish ? 'long' : 'short';
 
-  // ── CONDITION 1: EMA Trend Aligned ──────────────────────────
+  // ── CONDITION 1: EMA Bias + Price position ──────────────────
+  // Long:  EMA10 > EMA55  AND  price above EMA55
+  // Short: EMA10 < EMA55  AND  price below EMA55
+  const priceAboveEMA55 = current > ema55;
+  const priceBelowEMA55 = current < ema55;
+  const c1met = direction === 'long'
+    ? (emaBullish && priceAboveEMA55)
+    : (emaBearish && priceBelowEMA55);
   const c1 = {
-    met:    trendLong || trendShort,
-    label:  'EMA Trend aligned',
-    detail: `EMA50 ($${fmt(ema50)}) is ${trendLong ? 'ABOVE' : 'BELOW'} EMA200 ($${fmt(ema200)}) → ${trendLong ? 'Bullish' : 'Bearish'} trend`,
+    met:    c1met,
+    label:  'EMA Bias — price on right side of EMA55',
+    detail: `EMA10 $${fmt(ema10)} ${emaBullish ? '>' : '<'} EMA55 $${fmt(ema55)} · Price $${fmt(current)} is ${priceAboveEMA55 ? 'ABOVE' : 'BELOW'} EMA55 → ${c1met ? '✓ Aligned' : '✗ Not aligned'} · Macro EMA200: $${fmt(ema200)}`,
   };
 
-  // ── CONDITION 2: ADX Rising (trend strength growing) ────────
+  // ── CONDITION 2: ADX > 23 and rising slope ──────────────────
+  // "Slope is king" — must be rising, not just above threshold
   const adxRising = adx !== null && adxPrev !== null && adx > adxPrev;
-  const adxStrong = adx !== null && adx > 20;
+  const adxStrong = adx !== null && adx > 23;  // Merino uses 23 as threshold
+  const adxFlat   = adx !== null && Math.abs(adx - (adxPrev ?? adx)) < 0.3;
   const c2 = {
     met:    adxRising && adxStrong,
-    label:  'ADX rising — trend gaining strength',
+    label:  'ADX > 23 with rising slope (trend strengthening)',
     detail: adx !== null
-      ? `ADX: ${adx.toFixed(1)} (${adxRising ? '↑ rising' : '↓ falling'}, ${adxStrong ? 'strong >20' : 'weak <20'})`
+      ? `ADX: ${adx.toFixed(1)} · ${adxStrong ? '✓ Strong (>23)' : '✗ Weak (<23, avoid)'} · Slope: ${adxFlat ? '→ Flat (chop — avoid)' : adxRising ? '↑ Rising ✓' : '↓ Falling (exit zone)'}`
       : 'ADX: not enough data yet',
   };
 
-  // ── CONDITION 3: Squeeze Momentum aligned with direction ─────
-  // Momentum must be in the right direction AND expanding
-  const sqzBull  = sqz.val > 0;
-  const sqzBear  = sqz.val < 0;
-  const momRising = sqzP ? Math.abs(sqz.val) > Math.abs(sqzP.val) : false;
-  const sqzFired  = sqzP && sqzP.sqzOn && !sqz.sqzOn; // just broke out of compression
+  // ── CONDITION 3: Squeeze fired + momentum in direction ───────
+  // Highest conviction: squeeze JUST fired (was coiling, now exploding)
+  // Also valid: recently fired within 3 bars AND momentum still expanding
+  const sqzJustFired   = sqzP && sqzP.sqzOn && !sqz.sqzOn;
+  const sqzRecentlyFired = sqzRecent.some((s, i, arr) =>
+    i > 0 && arr[i - 1].sqzOn && !s.sqzOn
+  );
+  const momExpanding   = sqzP ? Math.abs(sqz.val) > Math.abs(sqzP.val) : false;
+  const momBullish     = sqz.val > 0;
+  const momBearish     = sqz.val < 0;
+
+  const c3met = direction === 'long'
+    ? momBullish && (sqzJustFired || (sqzRecentlyFired && momExpanding))
+    : momBearish && (sqzJustFired || (sqzRecentlyFired && momExpanding));
+
+  const sqzStatus = sqz.sqzOn
+    ? '🔵 Squeeze ON — coiling, wait'
+    : sqzJustFired
+      ? '⚡ JUST FIRED — highest conviction!'
+      : sqzRecentlyFired
+        ? '📈 Recently fired — still valid'
+        : '📊 Expanded (no recent fire)';
   const c3 = {
-    met: direction === 'long'
-      ? sqzBull && (momRising || sqzFired)
-      : sqzBear && (momRising || sqzFired),
-    label:  'Squeeze Momentum confirms direction',
-    detail: `Momentum: ${sqz.val.toFixed(2)} (${sqzBull ? '🟢 Bullish' : '🔴 Bearish'}) · ${sqz.sqzOn ? '🔵 Squeeze ON (coiling)' : sqzFired ? '⚡ Just fired!' : '📈 Expanding'} · ${momRising ? 'Increasing ↑' : 'Decreasing ↓'}`,
+    met:    c3met,
+    label:  'Squeeze Momentum fired in trade direction',
+    detail: `${sqzStatus} · Histogram: ${sqz.val > 0 ? '🟢' : '🔴'} ${sqz.val.toFixed(2)} · ${momExpanding ? 'Expanding ↑ (strong)' : 'Shrinking ↓ (weakening)'}`,
   };
 
-  // ── CONDITION 4: RSI not in extreme zone ────────────────────
+  // ── CONDITION 4: RSI not in extreme / divergence check ───────
   const rsiOk = rsi !== null
     ? (direction === 'long' ? rsi < 70 : rsi > 30)
     : false;
+  // Extra: RSI at 50 bounce (bullish when >50, bearish when <50)
+  const rsiAligned = rsi !== null
+    ? (direction === 'long' ? rsi > 45 : rsi < 55)
+    : false;
   const rsiZone = rsi !== null
-    ? (rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : rsi > 50 ? 'Bullish zone' : 'Bearish zone')
+    ? (rsi > 70 ? '⛔ Overbought' : rsi < 30 ? '⛔ Oversold' : rsi > 50 ? '🟢 Above 50 (bullish)' : '🔴 Below 50 (bearish)')
     : '—';
   const c4 = {
     met:    rsiOk,
-    label:  `RSI ${direction === 'long' ? 'not overbought' : 'not oversold'}`,
+    label:  `RSI ${direction === 'long' ? '< 70 — room to move up' : '> 30 — room to move down'}`,
     detail: rsi !== null
-      ? `RSI: ${rsi.toFixed(1)} · ${rsiZone} · ${rsiOk ? 'OK ✓' : direction === 'long' ? 'Overbought — wait for pullback' : 'Oversold — wait for recovery'}`
+      ? `RSI: ${rsi.toFixed(1)} · ${rsiZone} · ${rsiOk ? `✓ ${rsiAligned ? 'Confirmed' : 'Acceptable'}` : direction === 'long' ? '✗ Overbought — wait for reset' : '✗ Oversold — wait for recovery'}`
       : 'RSI: not enough data',
   };
 
-  // ── CONDITION 5: Price near a key support/resistance level ──
+  // ── CONDITION 5: Price bouncing from / rejecting at EMA55 ────
+  // The EMA55 is the key dynamic S/R in this strategy.
+  // Also check Volume POC and BB extremes as secondary levels.
+  const distEMA10  = Math.abs(current - ema10)  / current;
+  const distEMA55  = Math.abs(current - ema55)  / current;
+  const distEMA200 = Math.abs(current - ema200) / current;
+  const distPOC    = Math.abs(current - vp.poc) / current;
+  const distBBLow  = Math.abs(current - bb.lower) / current;
+  const distBBHigh = Math.abs(current - bb.upper) / current;
+
   const keyLevels = [
-    { label: 'EMA 50',    value: ema50  },
-    { label: 'EMA 100',   value: ema100 },
-    { label: 'EMA 200',   value: ema200 },
-    { label: 'BB Middle', value: bb.mid },
-    { label: 'Vol POC',   value: vp.poc },
-    ...(direction === 'long'  ? [{ label: 'BB Lower', value: bb.lower }] : []),
-    ...(direction === 'short' ? [{ label: 'BB Upper', value: bb.upper }] : []),
+    { label: 'EMA 10',    dist: distEMA10  },
+    { label: 'EMA 55',    dist: distEMA55  },
+    { label: 'EMA 200',   dist: distEMA200 },
+    { label: 'Vol POC',   dist: distPOC    },
+    ...(direction === 'long'  ? [{ label: 'BB Lower', dist: distBBLow  }] : []),
+    ...(direction === 'short' ? [{ label: 'BB Upper', dist: distBBHigh }] : []),
   ];
-
-  const withDist = keyLevels.map(l => ({
-    ...l,
-    dist: Math.abs(current - l.value) / current,
-  }));
-  withDist.sort((a, b) => a.dist - b.dist);
-  const closest = withDist[0];
-  const nearLevel = closest.dist < 0.025; // within 2.5%
-
+  keyLevels.sort((a, b) => a.dist - b.dist);
+  const nearEMA55  = distEMA55  < 0.03;  // within 3% of EMA55 = ideal bounce
+  const nearAnyKey = keyLevels[0].dist < 0.025;
   const c5 = {
-    met:    nearLevel,
-    label:  'Price near key support / resistance',
-    detail: `Closest: ${closest.label} @ $${fmt(closest.value)} · ${(closest.dist * 100).toFixed(2)}% away ${nearLevel ? '✓' : '(too far)'}`,
+    met:    nearEMA55 || nearAnyKey,
+    label:  'Price near key level — EMA55 bounce / rejection',
+    detail: `EMA55 distance: ${(distEMA55 * 100).toFixed(2)}% ${nearEMA55 ? '✓ Ideal bounce zone' : ''} · Closest: ${keyLevels[0].label} (${(keyLevels[0].dist * 100).toFixed(2)}% away) ${nearAnyKey ? '✓' : '✗ Too far from any key level'}`,
   };
 
   const conditions = [c1, c2, c3, c4, c5];
   const metCount   = conditions.filter(c => c.met).length;
 
-  // — Determine signal —
+  // ── SIGNAL: require EMA bias (c1) + at least 2 more ─────────
   let signal = 'WAIT';
-  if (metCount >= 3 && c1.met) {
+  if (c1met && metCount >= 3) {
     signal = direction === 'long' ? 'LONG' : 'SHORT';
   }
 
-  // — Leverage based on conditions met —
+  // ── LEVERAGE: based on confluence strength ───────────────────
   let leverage = 0;
-  if (metCount === 3) leverage = 3;
-  else if (metCount === 4) leverage = 6;
-  else if (metCount === 5) leverage = 10;
+  if (c1met && metCount === 3) leverage = 3;
+  else if (c1met && metCount === 4) leverage = 6;
+  else if (c1met && metCount === 5) leverage = 10;
 
-  // — Trade parameters —
-  const tradeSize  = capital * 0.10;
-  const slPct      = 0.07;
-  const tpPct      = 0.14; // 2:1 risk/reward
-  const stopLoss   = direction === 'long'
+  // ── TRADE PARAMETERS ────────────────────────────────────────
+  // SL: 7% (or below EMA55 for precision)
+  // TP: 1:3 R/R (21%) per strategy minimum R:R of 1:2.5 to 1:4
+  const tradeSize       = capital * 0.10;
+  const slPct           = 0.07;
+  const tpPct           = 0.21; // 1:3 R/R (strategy recommends 1:2.5–1:4)
+  const stopLoss        = direction === 'long'
     ? current * (1 - slPct)
     : current * (1 + slPct);
-  const takeProfit = direction === 'long'
+  const takeProfit      = direction === 'long'
     ? current * (1 + tpPct)
     : current * (1 - tpPct);
-  const maxLoss        = tradeSize * slPct;
+  const maxLoss         = tradeSize * slPct;
   const estimatedProfit = tradeSize * leverage * tpPct;
 
-  // — Reason text —
+  // ── SUBTITLE ────────────────────────────────────────────────
   let subtitle = '';
   if (signal === 'WAIT') {
-    if (metCount === 0) subtitle = 'No conditions met. Market structure is unclear — stay on the sidelines.';
-    else if (metCount === 1) subtitle = `Only 1/5 conditions met. Not enough confluence to enter a trade.`;
-    else subtitle = `${metCount}/5 conditions met — need at least 3 for a valid entry. Stay patient.`;
+    if (!c1met) subtitle = `EMA bias not confirmed — EMA10 and price must align with EMA55 before entering. Stay out.`;
+    else if (metCount < 3) subtitle = `${metCount}/5 conditions met — need at least 3 for valid entry. Squeeze ${sqz.sqzOn ? 'is still coiling 🔵 — wait for the fire.' : 'has not confirmed direction yet.'}`;
+    else subtitle = `${metCount}/5 conditions met. Waiting for full confluence.`;
   } else {
-    subtitle = `${metCount}/5 conditions met. ${leverage}x leverage suggested. Entry at market price. Stop loss at $${fmt(stopLoss)}.`;
+    subtitle = `${metCount}/5 conditions aligned. ${leverage}x leverage. SL $${fmt(stopLoss)} · TP $${fmt(takeProfit)} (1:3 R/R). ${sqzJustFired ? '⚡ Squeeze just fired — highest conviction entry!' : ''}`;
   }
 
   return {
@@ -396,7 +433,7 @@ function analyzeSignal(candles, capital) {
     conditions,
     currentPrice: current, prevClose: prev,
     tradeSize, stopLoss, takeProfit, maxLoss, estimatedProfit, slPct, tpPct,
-    ema50, ema100, ema200,
+    ema10, ema55, ema200,
     rsi, adx, adxPrev,
     bb, sqz, poc: vp.poc,
     subtitle,
@@ -501,20 +538,21 @@ function renderConditions(conditions, direction) {
 }
 
 function renderIndicators(r) {
-  const ema50Dir  = r.ema50  > r.ema200 ? 'up'   : 'down';
-  const ema100Dir = r.ema100 > r.ema200 ? 'up'   : 'down';
-  const rsiDir    = r.rsi    > 50       ? 'up'   : 'down';
-  const adxDir    = r.adx !== null && r.adxPrev !== null && r.adx > r.adxPrev ? 'up' : 'down';
-  const sqzDir    = r.sqz.val > 0 ? 'up' : 'down';
+  const ema10Dir = r.ema10 > r.ema55  ? 'up' : 'down';
+  const ema55Dir = r.ema55 > r.ema200 ? 'up' : 'down';
+  const rsiDir   = r.rsi   > 50       ? 'up' : 'down';
+  const adxDir   = r.adx !== null && r.adxPrev !== null && r.adx > r.adxPrev ? 'up' : 'down';
+  const sqzDir   = r.sqz.val > 0 ? 'up' : 'down';
 
   const set = (id, val, cls) => {
     const e = el(id);
+    if (!e) return;
     e.textContent = val;
     e.className   = `ind-value${cls ? ' ' + cls : ''}`;
   };
 
-  set('ind-ema50',   '$' + fmt(r.ema50),   ema50Dir);
-  set('ind-ema100',  '$' + fmt(r.ema100),  ema100Dir);
+  set('ind-ema10',   '$' + fmt(r.ema10),   ema10Dir);
+  set('ind-ema55',   '$' + fmt(r.ema55),   ema55Dir);
   set('ind-ema200',  '$' + fmt(r.ema200),  '');
   set('ind-rsi',     r.rsi !== null ? r.rsi.toFixed(1) : '—', rsiDir);
   set('ind-adx',     r.adx !== null ? r.adx.toFixed(1) : '—', adxDir);
