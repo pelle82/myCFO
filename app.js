@@ -716,14 +716,60 @@ function startTradeMonitor() {
       lastCandles   = candles;
       const exit    = analyzeExitSignals(candles, activeTrade);
       updateTradeMonitorUI(exit);
-      // Auto-close message if stop loss hit
-      if (exit.hitSL) {
-        el('exit-status-text').textContent = '🔴 STOP LOSS HIT — Close this trade now!';
-      }
+      autoCloseIfNeeded(exit);
     } catch (e) {
       console.warn('Monitor refresh error:', e);
     }
   }, 30000);
+}
+
+function autoCloseIfNeeded(exit) {
+  if (!activeTrade) return;
+  const isLong = activeTrade.direction === 'long';
+
+  // Check SL hit
+  if (exit.hitSL) {
+    showAutoCloseAlert(
+      '🔴 STOP LOSS HIT',
+      `Price reached your stop loss at $${fmt(activeTrade.stopLoss)}.\nTrade closed automatically. Loss: ${fmtUSD(exit.unrealizedPnL)}`,
+      'loss'
+    );
+    return;
+  }
+
+  // Check TP hit — price moved 21% (1:3 R/R) in favor
+  const tpPct   = 0.21;
+  const tpPrice = isLong
+    ? activeTrade.entryPrice * (1 + tpPct)
+    : activeTrade.entryPrice * (1 - tpPct);
+  const tpHit = isLong ? exit.current >= tpPrice : exit.current <= tpPrice;
+
+  if (tpHit) {
+    showAutoCloseAlert(
+      '🎯 TAKE PROFIT HIT',
+      `Price reached 1:3 R/R target at $${fmt(tpPrice)}.\nTrade closed automatically. Profit: ${fmtUSD(exit.unrealizedPnL)}`,
+      'profit'
+    );
+  }
+}
+
+function showAutoCloseAlert(title, message, type) {
+  // Update monitor UI to show the final result before closing
+  const bar = el('exit-status-bar');
+  bar.className = `exit-status-bar status-${type === 'loss' ? 'exit' : 'hold'}`;
+  el('exit-status-text').textContent = `${title} — Trade closed automatically`;
+
+  const tipsList = el('exit-tips-list');
+  tipsList.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = `exit-tip tip-${type === 'loss' ? 'exit' : 'hold'}`;
+  div.textContent = message.replace('\n', ' ');
+  tipsList.appendChild(div);
+
+  // Close after 5 seconds so user can read the result
+  setTimeout(() => {
+    closeTrade();
+  }, 5000);
 }
 
 function stopTradeMonitor() {
