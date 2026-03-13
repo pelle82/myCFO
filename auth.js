@@ -125,6 +125,7 @@ const Auth = (() => {
       _flush({ user: null, isGuest: true, firebaseReady: false });
       _renderHeaderUser(null);
       _renderGuestBanner(true);
+      _showAuthModal();
       return;
     }
 
@@ -164,6 +165,7 @@ const Auth = (() => {
       _ready = true;
       _flush({ user: null, isGuest: true, firebaseReady: false });
       _renderGuestBanner(true);
+      _showAuthModal();
     }
   }
 
