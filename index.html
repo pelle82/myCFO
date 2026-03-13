@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>myCFO — BTC/USD Signal Dashboard</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="auth.css" />
 </head>
 <body>
   <div class="app">
@@ -24,6 +25,8 @@
         </div>
       </div>
       <div class="header-right">
+        <!-- User avatar + name + sign-out (shown when authenticated) -->
+        <div id="header-user"></div>
         <div class="btc-price-block">
           <span class="btc-label">BTC / USD</span>
           <span class="btc-price" id="btc-price">—</span>
@@ -31,6 +34,9 @@
         </div>
       </div>
     </header>
+
+    <!-- GUEST MODE BANNER (shown when user is not signed in) -->
+    <div id="guest-banner"></div>
 
     <!-- TAB NAVIGATION -->
     <nav class="tab-nav">
@@ -232,6 +238,13 @@
 
   </div>
 
-  <script src="app.js?v=11"></script>
+  <!-- Firebase SDK (compat build — same API surface as v8) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- Auth module must load before app.js so Auth global is available -->
+  <script src="auth.js?v=1"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
