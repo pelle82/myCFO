@@ -650,6 +650,10 @@ function closeTrade(tradeId, exitPrice, reason) {
 
 function saveTrades() {
   localStorage.setItem(STORAGE_KEYS.ACTIVE_TRADES, JSON.stringify(state.activeTrades));
+  // Cloud sync: persist to Firestore when the user is authenticated.
+  if (typeof Auth !== 'undefined' && !Auth.isGuest()) {
+    Auth.saveActiveTrades(state.activeTrades).catch(e => console.warn('[saveTrades cloud]', e));
+  }
 }
 
 function loadTrades() {
@@ -934,9 +938,14 @@ function saveTradeToHistory(trade, exitPrice, reason, notes) {
     version:      APP_VERSION,
   };
 
-  const history = getTradeHistory();
+  const history        = getTradeHistory();
   history.unshift(record);
-  localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.slice(0, STRATEGY.MAX_HISTORY)));
+  const trimmedHistory = history.slice(0, STRATEGY.MAX_HISTORY);
+  localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(trimmedHistory));
+  // Cloud sync: persist history to Firestore when the user is authenticated.
+  if (typeof Auth !== 'undefined' && !Auth.isGuest()) {
+    Auth.saveTradeHistory(trimmedHistory).catch(e => console.warn('[saveHistory cloud]', e));
+  }
 }
 
 function getTradeHistory() {
@@ -949,6 +958,10 @@ function getTradeHistory() {
 function clearTradeHistory() {
   if (!confirm('Delete all trade history? This cannot be undone.')) return;
   localStorage.removeItem(STORAGE_KEYS.HISTORY);
+  // Cloud sync: clear Firestore history when the user is authenticated.
+  if (typeof Auth !== 'undefined' && !Auth.isGuest()) {
+    Auth.saveTradeHistory([]).catch(e => console.warn('[clearHistory cloud]', e));
+  }
   renderTradeHistory();
 }
 
