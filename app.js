@@ -139,13 +139,18 @@ function getApiUrls(tf, assetKey) {
     };
   }
 
-  // Non-crypto assets (Futures, FX): server-side Yahoo Finance proxy
+  // Non-crypto assets (Futures, FX): server-side Yahoo Finance proxy with CORS fallback
   if (asset && asset.yahoo) {
-    const yahooTf = { '1h': '1h', '4h': '4h', '1d': '1d', '1w': '1wk' }[tf] || '4h';
-    const range   = { '1h': '1mo', '4h': '3mo', '1d': '2y', '1w': '10y' }[tf] || '3mo';
+    const needs4h = tf === '4h';
+    const yahooTf = needs4h ? '1h' : ({ '1h': '1h', '4h': '4h', '1d': '1d', '1w': '1wk' }[tf] || '4h');
+    const range   = needs4h ? '2y' : ({ '1h': '1mo', '4h': '3mo', '1d': '2y', '1w': '10y' }[tf] || '3mo');
+    const yahooSymbol = asset.yahoo;
+    const yahooDirectUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${yahooTf}&range=${range}`;
     return {
       provider: 'yahoo',
-      url: `/api/market-data?symbol=${encodeURIComponent(assetKey || state.currentAsset)}&interval=${yahooTf}&range=${range}`,
+      proxyUrl: `/api/market-data?symbol=${encodeURIComponent(assetKey || state.currentAsset)}&interval=${tf === '4h' ? '4h' : yahooTf}&range=${tf === '4h' ? '3mo' : range}`,
+      directUrl: yahooDirectUrl,
+      needs4h,
     };
   }
 
@@ -1225,24 +1230,104 @@ async function fetchCandles(tf, assetKey) {
   }));
 }
 
+// Aggregate hourly candles into 4h candles (client-side, mirrors server.js logic)
+function aggregate4hClient(candles) {
+  if (!candles.length) return [];
+  const result = [];
+  for (let i = 0; i < candles.length; i += 4) {
+    const block = candles.slice(i, i + 4);
+    if (block.length === 0) break;
+    result.push({
+      time:   block[0].time,
+      open:   block[0].open,
+      high:   Math.max(...block.map(c => c.high)),
+      low:    Math.min(...block.map(c => c.low)),
+      close:  block[block.length - 1].close,
+      volume: block.reduce((s, c) => s + c.volume, 0),
+    });
+  }
+  return result;
+}
+
+// Parse raw Yahoo Finance chart JSON into normalized OHLCV candles
+function parseYahooChartResponse(body, key) {
+  const data = (typeof body === 'string') ? JSON.parse(body) : body;
+  const result = data?.chart?.result?.[0];
+  if (!result || !result.timestamp || result.timestamp.length === 0) {
+    throw new Error(`Market data unavailable for ${key}. Please try again later.`);
+  }
+  const timestamps = result.timestamp;
+  const quote = result.indicators?.quote?.[0];
+  if (!quote) {
+    throw new Error(`Market data unavailable for ${key}. Please try again later.`);
+  }
+  const candles = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const o = quote.open?.[i];
+    const h = quote.high?.[i];
+    const l = quote.low?.[i];
+    const c = quote.close?.[i];
+    const v = quote.volume?.[i] ?? 0;
+    if (o == null || h == null || l == null || c == null) continue;
+    candles.push({ time: timestamps[i] * 1000, open: o, high: h, low: l, close: c, volume: v });
+  }
+  return candles;
+}
+
+// Check if a response body looks like HTML (indicating a proxy/CDN error page)
+function looksLikeHtml(text) {
+  const trimmed = text.trimStart().toLowerCase();
+  return trimmed.startsWith('<!doctype') || trimmed.startsWith('<html');
+}
+
 async function fetchYahooCandles(urls, key) {
-  const res = await fetch(urls.url);
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`Market data unavailable for ${key} (HTTP ${res.status}). ${errBody || 'Please try again later.'}`);
-  }
-  const data = await res.json();
+  const errors = [];
 
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error(`No market data available for ${key}. This instrument may not be supported yet.`);
+  // Strategy 1: Try local server proxy (works when running via `node server.js`)
+  try {
+    const res = await fetch(urls.proxyUrl);
+    const text = await res.text();
+    if (looksLikeHtml(text)) {
+      throw new Error('Local proxy not available (received HTML response)');
+    }
+    if (!res.ok) {
+      throw new Error(`Local proxy HTTP ${res.status}`);
+    }
+    const data = JSON.parse(text);
+    if (Array.isArray(data) && data.length >= 50) return data;
+    if (Array.isArray(data) && data.length > 0) {
+      throw new Error(`Insufficient data from local proxy (${data.length} candles)`);
+    }
+    throw new Error('Empty response from local proxy');
+  } catch (err) {
+    console.warn(`[fetchYahoo] Local proxy failed for ${key}:`, err.message);
+    errors.push(err.message);
   }
 
-  if (data.length < 50) {
-    throw new Error(`Insufficient market data for ${key} (${data.length} candles). Try a shorter timeframe.`);
+  // Strategy 2: Direct Yahoo Finance via CORS proxy (works on GitHub Pages)
+  const corsProxies = [
+    (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  ];
+
+  for (const makeProxy of corsProxies) {
+    try {
+      const proxiedUrl = makeProxy(urls.directUrl);
+      const res = await fetch(proxiedUrl);
+      if (!res.ok) throw new Error(`CORS proxy HTTP ${res.status}`);
+      const text = await res.text();
+      if (looksLikeHtml(text)) throw new Error('CORS proxy returned HTML');
+      let candles = parseYahooChartResponse(text, key);
+      if (urls.needs4h) candles = aggregate4hClient(candles);
+      if (candles.length < 50) throw new Error(`Insufficient data (${candles.length} candles)`);
+      return candles;
+    } catch (err) {
+      console.warn(`[fetchYahoo] CORS proxy failed for ${key}:`, err.message);
+      errors.push(err.message);
+    }
   }
 
-  // Proxy returns normalized OHLCV: [{ time, open, high, low, close, volume }]
-  return data;
+  throw new Error(`Market data unavailable for ${key}. Please try again later.`);
 }
 
 // ============================================================
@@ -1556,8 +1641,12 @@ async function run() {
   } catch (err) {
     console.error('Error fetching data:', err);
     el('signal-text').textContent = 'ERROR';
+    // Sanitize error message — never display raw HTML to the user
+    const safeMsg = (err.message && !looksLikeHtml(err.message))
+      ? err.message
+      : `Market data unavailable for ${state.currentAsset}. Please try again later.`;
     el('signal-subtitle').textContent =
-      `Could not load market data for ${state.currentAsset}: ${err.message}`;
+      `Could not load market data for ${state.currentAsset}: ${safeMsg}`;
     // Still update price display for context
     const priceEl = el('asset-price');
     if (priceEl) priceEl.textContent = '—';
