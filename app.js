@@ -17,7 +17,7 @@ function getApiUrls(tf) {
   };
 }
 
-let currentTimeframe = '1h';
+let currentTimeframe = '4h';
 
 let refreshTimer = null;
 let countdownInterval = null;
@@ -873,18 +873,24 @@ function exportTradeHistory() {
 
 function renderTradeHistory() {
   const history = getTradeHistory();
-  const section = el('history-section');
   const list    = el('history-list');
   const countEl = el('history-count');
-  if (!section) return;
+  const badge   = el('history-tab-badge');
+  if (!list) return;
+
+  // Update tab badge
+  if (badge) {
+    badge.textContent    = history.length;
+    badge.style.display  = history.length ? '' : 'none';
+  }
+  if (countEl) countEl.textContent = `${history.length} trade${history.length !== 1 ? 's' : ''}`;
+
+  list.innerHTML = '';
 
   if (history.length === 0) {
-    section.style.display = 'none';
+    list.innerHTML = '<div class="history-empty">No closed trades yet.<br>Enter a trade and close it to see your history here.</div>';
     return;
   }
-
-  section.style.display = 'block';
-  countEl.textContent   = `${history.length} trade${history.length !== 1 ? 's' : ''}`;
 
   // Totals summary
   const wins    = history.filter(t => t.pnl >= 0).length;
@@ -1214,6 +1220,18 @@ function switchTimeframe(tf) {
   clearTimeout(refreshTimer);
   clearInterval(countdownInterval);
   run();
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  el('panel-dashboard').style.display = tab === 'dashboard' ? '' : 'none';
+  el('panel-history').style.display   = tab === 'history'   ? '' : 'none';
 }
 
 // ============================================================

@@ -75,7 +75,7 @@ html, body {
   justify-content: space-between;
   padding: 20px 0 16px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .header-left {
@@ -109,26 +109,77 @@ html, body {
   gap: 6px;
 }
 
+/* Segmented control — single connected pill */
 .tf-selector {
   display: flex;
-  gap: 3px;
-}
-
-.tf-btn {
+  align-items: center;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 1px;
+}
+
+.tf-btn {
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 9px;
+  padding: 4px 11px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s, color 0.15s;
   letter-spacing: 0.5px;
+  line-height: 1;
 }
-.tf-btn:hover    { border-color: var(--accent); color: var(--accent); }
-.tf-btn.active   { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.tf-btn:hover:not(.active):not(:disabled) { color: var(--text-secondary); }
+.tf-btn.active   { background: var(--bg-card); color: var(--accent); }
 .tf-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ============================================================
+   TAB NAVIGATION
+   ============================================================ */
+.tab-nav {
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  gap: 0;
+}
+
+.tab-nav-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 14px 20px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color 0.2s, border-bottom-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+.tab-nav-btn:hover { color: var(--text-secondary); }
+.tab-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-badge {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 1px 7px;
+  line-height: 1.6;
+}
 
 .btc-price-block {
   display: flex;
@@ -1005,6 +1056,14 @@ html, body {
   margin-top: 2px;
 }
 
+.history-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 32px 0;
+  text-align: center;
+  line-height: 1.6;
+}
+
 /* ============================================================
    FOOTER
    ============================================================ */
@@ -1077,4 +1136,5 @@ html, body {
   .history-row-top { flex-direction: column; align-items: flex-start; gap: 6px; }
   .history-pnl-wrap { flex-direction: row; }
   .footer-meta { flex-direction: column; gap: 4px; }
+  .tab-nav-btn { padding: 12px 14px; font-size: 12px; }
 }

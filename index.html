@@ -16,8 +16,8 @@
         <div class="header-meta">
           <span class="strategy-tag">Jaime Merino Strategy</span>
           <div class="tf-selector">
-            <button class="tf-btn active" data-tf="1h" onclick="switchTimeframe('1h')">1H</button>
-            <button class="tf-btn" data-tf="4h" onclick="switchTimeframe('4h')">4H</button>
+            <button class="tf-btn" data-tf="1h" onclick="switchTimeframe('1h')">1H</button>
+            <button class="tf-btn active" data-tf="4h" onclick="switchTimeframe('4h')">4H</button>
             <button class="tf-btn" data-tf="1d" onclick="switchTimeframe('1d')">1D</button>
             <button class="tf-btn" data-tf="1w" onclick="switchTimeframe('1w')">1W</button>
           </div>
@@ -32,205 +32,220 @@
       </div>
     </header>
 
-    <main class="main">
+    <!-- TAB NAVIGATION -->
+    <nav class="tab-nav">
+      <button class="tab-nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+      <button class="tab-nav-btn" data-tab="history" onclick="switchTab('history')">
+        History
+        <span class="tab-badge" id="history-tab-badge" style="display:none"></span>
+      </button>
+    </nav>
 
-      <!-- SIGNAL CARD -->
-      <section class="signal-card" id="signal-card">
-        <div class="signal-top">
-          <div class="signal-badge-wrap">
-            <div class="signal-badge" id="signal-badge">
-              <span id="signal-text">LOADING</span>
+    <!-- DASHBOARD PANEL -->
+    <div id="panel-dashboard">
+      <main class="main">
+
+        <!-- SIGNAL CARD -->
+        <section class="signal-card" id="signal-card">
+          <div class="signal-top">
+            <div class="signal-badge-wrap">
+              <div class="signal-badge" id="signal-badge">
+                <span id="signal-text">LOADING</span>
+              </div>
+              <div class="signal-direction" id="signal-direction"></div>
             </div>
-            <div class="signal-direction" id="signal-direction"></div>
-          </div>
-          <div class="signal-strength-block">
-            <div class="strength-label">Confluence</div>
-            <div class="strength-dots" id="strength-dots">
-              <span class="dot" id="dot-1"></span>
-              <span class="dot" id="dot-2"></span>
-              <span class="dot" id="dot-3"></span>
-              <span class="dot" id="dot-4"></span>
-              <span class="dot" id="dot-5"></span>
-            </div>
-            <div class="strength-text" id="strength-text">0 / 5 conditions met</div>
-          </div>
-        </div>
-        <div class="signal-subtitle" id="signal-subtitle">Connecting to Bitfinex market data…</div>
-        <!-- Enter Trade button — visible only when signal is active -->
-        <div class="enter-trade-wrap" id="enter-trade-wrap" style="display:none">
-          <button class="enter-trade-btn" id="enter-trade-btn" onclick="enterTrade()">
-            ⚡ Enter Trade at Market Price
-          </button>
-          <div class="enter-trade-note">Records your entry and starts 30s exit monitoring</div>
-        </div>
-      </section>
-
-      <!-- ACTIVE TRADE MONITOR — shown only when a trade is open -->
-      <section class="trade-monitor" id="trade-monitor" style="display:none">
-        <div class="monitor-header">
-          <div class="monitor-left">
-            <span class="monitor-badge" id="monitor-badge">LONG ACTIVE</span>
-            <span class="monitor-since" id="monitor-since"></span>
-          </div>
-          <button class="close-trade-btn" onclick="closeTrade()">✕ Close Trade</button>
-        </div>
-
-        <!-- P&L -->
-        <div class="monitor-pnl-row">
-          <div class="monitor-pnl-block">
-            <div class="monitor-pnl-label">Unrealized P&amp;L</div>
-            <div class="monitor-pnl-value" id="monitor-pnl">—</div>
-            <div class="monitor-pnl-pct" id="monitor-pnl-pct">—</div>
-          </div>
-          <div class="monitor-entry-block">
-            <div class="monitor-entry-row"><span>Entry</span><strong id="monitor-entry-price">—</strong></div>
-            <div class="monitor-entry-row"><span>Current</span><strong id="monitor-current-price">—</strong></div>
-            <div class="monitor-entry-row"><span>Stop Loss</span><strong id="monitor-sl">—</strong></div>
-            <div class="monitor-entry-row"><span>Leverage</span><strong id="monitor-lev">—</strong></div>
-          </div>
-        </div>
-
-        <!-- Exit Signal Status -->
-        <div class="exit-status-bar" id="exit-status-bar">
-          <div class="exit-status-dot" id="exit-status-dot"></div>
-          <div class="exit-status-text" id="exit-status-text">Analyzing…</div>
-        </div>
-
-        <!-- Exit Tips -->
-        <div class="exit-tips-list" id="exit-tips-list"></div>
-
-        <div class="monitor-footer">
-          <span>🔄 Monitoring every 30s · Last check: <strong id="monitor-last-check">—</strong></span>
-        </div>
-      </section>
-
-      <!-- CAPITAL INPUT + TRADE PARAMS -->
-      <section class="trade-section">
-        <div class="capital-row">
-          <div class="capital-block">
-            <label class="field-label" for="capital-input">Your Capital (USD)</label>
-            <div class="capital-input-wrap">
-              <span class="currency-symbol">$</span>
-              <input
-                type="number"
-                id="capital-input"
-                class="capital-input"
-                value="5000"
-                min="1"
-                step="100"
-                placeholder="5000"
-              />
+            <div class="signal-strength-block">
+              <div class="strength-label">Confluence</div>
+              <div class="strength-dots" id="strength-dots">
+                <span class="dot" id="dot-1"></span>
+                <span class="dot" id="dot-2"></span>
+                <span class="dot" id="dot-3"></span>
+                <span class="dot" id="dot-4"></span>
+                <span class="dot" id="dot-5"></span>
+              </div>
+              <div class="strength-text" id="strength-text">0 / 5 conditions met</div>
             </div>
           </div>
-          <div class="capital-note">10% of capital per trade</div>
-        </div>
+          <div class="signal-subtitle" id="signal-subtitle">Connecting to Bitfinex market data…</div>
+          <!-- Enter Trade button — visible only when signal is active -->
+          <div class="enter-trade-wrap" id="enter-trade-wrap" style="display:none">
+            <button class="enter-trade-btn" id="enter-trade-btn" onclick="enterTrade()">
+              ⚡ Enter Trade at Market Price
+            </button>
+            <div class="enter-trade-note">Records your entry and starts 30s exit monitoring</div>
+          </div>
+        </section>
 
-        <div class="params-grid" id="params-grid">
-          <div class="param-card">
-            <div class="param-label">Trade Size</div>
-            <div class="param-value" id="param-trade-size">—</div>
+        <!-- ACTIVE TRADE MONITOR — shown only when a trade is open -->
+        <section class="trade-monitor" id="trade-monitor" style="display:none">
+          <div class="monitor-header">
+            <div class="monitor-left">
+              <span class="monitor-badge" id="monitor-badge">LONG ACTIVE</span>
+              <span class="monitor-since" id="monitor-since"></span>
+            </div>
+            <button class="close-trade-btn" onclick="closeTrade()">✕ Close Trade</button>
           </div>
-          <div class="param-card">
-            <div class="param-label">Leverage</div>
-            <div class="param-value accent" id="param-leverage">—</div>
-          </div>
-          <div class="param-card">
-            <div class="param-label">Entry Price</div>
-            <div class="param-value" id="param-entry">—</div>
-          </div>
-          <div class="param-card">
-            <div class="param-label">Stop Loss (−7%)</div>
-            <div class="param-value danger" id="param-stoploss">—</div>
-          </div>
-          <div class="param-card">
-            <div class="param-label">Max Loss</div>
-            <div class="param-value danger" id="param-maxloss">—</div>
-          </div>
-          <div class="param-card">
-            <div class="param-label">Take Profit</div>
-            <div class="param-value success" id="param-tp">—</div>
-            <div class="param-sublabel" id="param-tp-pct"></div>
-          </div>
-          <div class="param-card profit-card">
-            <div class="param-label">Est. Profit</div>
-            <div class="param-value profit" id="param-profit">—</div>
-            <div class="param-sublabel" id="param-profit-detail"></div>
-          </div>
-        </div>
-      </section>
 
-      <!-- CONDITIONS -->
-      <section class="conditions-section">
-        <div class="section-header">
-          <h2 class="section-title">Entry Conditions</h2>
-          <span class="conditions-badge" id="conditions-badge">0 / 5</span>
-        </div>
-        <div class="conditions-list" id="conditions-list">
-          <div class="condition-loading">Analyzing…</div>
-        </div>
-      </section>
+          <!-- P&L -->
+          <div class="monitor-pnl-row">
+            <div class="monitor-pnl-block">
+              <div class="monitor-pnl-label">Unrealized P&amp;L</div>
+              <div class="monitor-pnl-value" id="monitor-pnl">—</div>
+              <div class="monitor-pnl-pct" id="monitor-pnl-pct">—</div>
+            </div>
+            <div class="monitor-entry-block">
+              <div class="monitor-entry-row"><span>Entry</span><strong id="monitor-entry-price">—</strong></div>
+              <div class="monitor-entry-row"><span>Current</span><strong id="monitor-current-price">—</strong></div>
+              <div class="monitor-entry-row"><span>Stop Loss</span><strong id="monitor-sl">—</strong></div>
+              <div class="monitor-entry-row"><span>Leverage</span><strong id="monitor-lev">—</strong></div>
+            </div>
+          </div>
 
-      <!-- INDICATOR READINGS -->
-      <section class="indicators-section">
-        <h2 class="section-title">Live Indicator Readings</h2>
-        <div class="indicators-grid" id="indicators-grid">
-          <div class="indicator-card">
-            <div class="ind-name">EMA 10 (Fast)</div>
-            <div class="ind-value" id="ind-ema10">—</div>
+          <!-- Exit Signal Status -->
+          <div class="exit-status-bar" id="exit-status-bar">
+            <div class="exit-status-dot" id="exit-status-dot"></div>
+            <div class="exit-status-text" id="exit-status-text">Analyzing…</div>
           </div>
-          <div class="indicator-card">
-            <div class="ind-name">EMA 55 (Bias)</div>
-            <div class="ind-value" id="ind-ema55">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">EMA 200</div>
-            <div class="ind-value" id="ind-ema200">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">RSI (14)</div>
-            <div class="ind-value" id="ind-rsi">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">ADX (14)</div>
-            <div class="ind-value" id="ind-adx">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">BB Upper</div>
-            <div class="ind-value" id="ind-bb-upper">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">BB Lower</div>
-            <div class="ind-value" id="ind-bb-lower">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">Squeeze</div>
-            <div class="ind-value" id="ind-squeeze">—</div>
-          </div>
-          <div class="indicator-card">
-            <div class="ind-name">Vol POC</div>
-            <div class="ind-value" id="ind-poc">—</div>
-          </div>
-        </div>
-      </section>
 
-      <!-- REFRESH STATUS -->
-      <section class="refresh-section">
-        <div class="refresh-row">
-          <div class="refresh-times">
-            <span>Last update: <strong id="last-update">—</strong></span>
-            <span>Next candle: <strong id="next-candle">—</strong></span>
-          </div>
-          <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
-            ↻ Refresh Now
-          </button>
-        </div>
-        <div class="countdown-bar-wrap">
-          <div class="countdown-bar" id="countdown-bar"></div>
-        </div>
-      </section>
+          <!-- Exit Tips -->
+          <div class="exit-tips-list" id="exit-tips-list"></div>
 
-      <!-- TRADE HISTORY -->
-      <section class="history-section" id="history-section" style="display:none">
+          <div class="monitor-footer">
+            <span>🔄 Monitoring every 30s · Last check: <strong id="monitor-last-check">—</strong></span>
+          </div>
+        </section>
+
+        <!-- CAPITAL INPUT + TRADE PARAMS -->
+        <section class="trade-section">
+          <div class="capital-row">
+            <div class="capital-block">
+              <label class="field-label" for="capital-input">Your Capital (USD)</label>
+              <div class="capital-input-wrap">
+                <span class="currency-symbol">$</span>
+                <input
+                  type="number"
+                  id="capital-input"
+                  class="capital-input"
+                  value="5000"
+                  min="1"
+                  step="100"
+                  placeholder="5000"
+                />
+              </div>
+            </div>
+            <div class="capital-note">10% of capital per trade</div>
+          </div>
+
+          <div class="params-grid" id="params-grid">
+            <div class="param-card">
+              <div class="param-label">Trade Size</div>
+              <div class="param-value" id="param-trade-size">—</div>
+            </div>
+            <div class="param-card">
+              <div class="param-label">Leverage</div>
+              <div class="param-value accent" id="param-leverage">—</div>
+            </div>
+            <div class="param-card">
+              <div class="param-label">Entry Price</div>
+              <div class="param-value" id="param-entry">—</div>
+            </div>
+            <div class="param-card">
+              <div class="param-label">Stop Loss (−7%)</div>
+              <div class="param-value danger" id="param-stoploss">—</div>
+            </div>
+            <div class="param-card">
+              <div class="param-label">Max Loss</div>
+              <div class="param-value danger" id="param-maxloss">—</div>
+            </div>
+            <div class="param-card">
+              <div class="param-label">Take Profit</div>
+              <div class="param-value success" id="param-tp">—</div>
+              <div class="param-sublabel" id="param-tp-pct"></div>
+            </div>
+            <div class="param-card profit-card">
+              <div class="param-label">Est. Profit</div>
+              <div class="param-value profit" id="param-profit">—</div>
+              <div class="param-sublabel" id="param-profit-detail"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CONDITIONS -->
+        <section class="conditions-section">
+          <div class="section-header">
+            <h2 class="section-title">Entry Conditions</h2>
+            <span class="conditions-badge" id="conditions-badge">0 / 5</span>
+          </div>
+          <div class="conditions-list" id="conditions-list">
+            <div class="condition-loading">Analyzing…</div>
+          </div>
+        </section>
+
+        <!-- INDICATOR READINGS -->
+        <section class="indicators-section">
+          <h2 class="section-title">Live Indicator Readings</h2>
+          <div class="indicators-grid" id="indicators-grid">
+            <div class="indicator-card">
+              <div class="ind-name">EMA 10 (Fast)</div>
+              <div class="ind-value" id="ind-ema10">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">EMA 55 (Bias)</div>
+              <div class="ind-value" id="ind-ema55">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">EMA 200</div>
+              <div class="ind-value" id="ind-ema200">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">RSI (14)</div>
+              <div class="ind-value" id="ind-rsi">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">ADX (14)</div>
+              <div class="ind-value" id="ind-adx">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">BB Upper</div>
+              <div class="ind-value" id="ind-bb-upper">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">BB Lower</div>
+              <div class="ind-value" id="ind-bb-lower">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">Squeeze</div>
+              <div class="ind-value" id="ind-squeeze">—</div>
+            </div>
+            <div class="indicator-card">
+              <div class="ind-name">Vol POC</div>
+              <div class="ind-value" id="ind-poc">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- REFRESH STATUS -->
+        <section class="refresh-section">
+          <div class="refresh-row">
+            <div class="refresh-times">
+              <span>Last update: <strong id="last-update">—</strong></span>
+              <span>Next candle: <strong id="next-candle">—</strong></span>
+            </div>
+            <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
+              ↻ Refresh Now
+            </button>
+          </div>
+          <div class="countdown-bar-wrap">
+            <div class="countdown-bar" id="countdown-bar"></div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- HISTORY PANEL -->
+    <div id="panel-history" style="display:none">
+      <section class="history-section" id="history-section">
         <div class="section-header">
           <h2 class="section-title">Trade History</h2>
           <div class="history-header-right">
@@ -241,8 +256,7 @@
         </div>
         <div class="history-list" id="history-list"></div>
       </section>
-
-    </main>
+    </div>
 
     <footer class="footer">
       <div class="footer-disclaimer">
@@ -254,6 +268,6 @@
 
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
