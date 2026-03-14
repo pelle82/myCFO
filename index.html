@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SqFlow — Multi-asset real-time trading signal dashboard using the Jaime Merino Strategy" />
+  <meta name="theme-color" content="#0f1729" />
   <title>SqFlow — Multi-Asset Signal Dashboard</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="auth.css" />
@@ -11,16 +13,16 @@
   <div class="app">
 
     <!-- HEADER -->
-    <header class="header">
+    <header class="header" role="banner">
       <div class="header-left">
-        <span class="logo">SqFlow</span>
+        <span class="logo" aria-label="SqFlow">SqFlow</span>
         <div class="header-meta">
           <span class="strategy-tag">Jaime Merino Strategy</span>
-          <div class="tf-selector">
-            <button class="tf-btn" data-tf="1h">1H</button>
-            <button class="tf-btn active" data-tf="4h">4H</button>
-            <button class="tf-btn" data-tf="1d">1D</button>
-            <button class="tf-btn" data-tf="1w">1W</button>
+          <div class="tf-selector" role="group" aria-label="Timeframe selector">
+            <button class="tf-btn" data-tf="1h" aria-label="1 hour timeframe">1H</button>
+            <button class="tf-btn active" data-tf="4h" aria-pressed="true" aria-label="4 hour timeframe">4H</button>
+            <button class="tf-btn" data-tf="1d" aria-label="1 day timeframe">1D</button>
+            <button class="tf-btn" data-tf="1w" aria-label="1 week timeframe">1W</button>
           </div>
         </div>
       </div>
@@ -28,79 +30,79 @@
         <!-- User avatar + name + sign-out (shown when authenticated) -->
         <div id="header-user"></div>
         <div class="asset-selector-wrap">
-          <button class="asset-selector-trigger" id="asset-selector-trigger">
+          <button class="asset-selector-trigger" id="asset-selector-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Select trading asset">
             <span class="asset-label" id="asset-label">BTC / USD</span>
-            <span class="asset-selector-arrow">▾</span>
+            <span class="asset-selector-arrow" aria-hidden="true">&#x25BE;</span>
           </button>
-          <div class="asset-selector-dropdown" id="asset-selector-dropdown"></div>
+          <div class="asset-selector-dropdown" id="asset-selector-dropdown" role="listbox" aria-label="Available assets"></div>
         </div>
         <div class="asset-price-block">
           <div class="asset-price-row">
-            <span class="asset-price" id="asset-price">—</span>
-            <span class="market-status open" id="market-status">Open</span>
+            <span class="asset-price" id="asset-price" aria-label="Current price" role="status">—</span>
+            <span class="market-status open" id="market-status" role="status">Open</span>
           </div>
-          <span class="asset-change" id="asset-change"></span>
+          <span class="asset-change" id="asset-change" aria-label="Price change"></span>
         </div>
       </div>
     </header>
 
     <!-- GUEST MODE BANNER (shown when user is not signed in) -->
-    <div id="guest-banner"></div>
+    <div id="guest-banner" role="alert"></div>
 
     <!-- TAB NAVIGATION -->
-    <nav class="tab-nav">
-      <button class="tab-nav-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-nav-btn" data-tab="history">
+    <nav class="tab-nav" aria-label="Main navigation">
+      <button class="tab-nav-btn active" data-tab="dashboard" aria-selected="true" role="tab">Dashboard</button>
+      <button class="tab-nav-btn" data-tab="history" aria-selected="false" role="tab">
         History
-        <span class="tab-badge" id="history-tab-badge" style="display:none"></span>
+        <span class="tab-badge" id="history-tab-badge" style="display:none" aria-label="Trade count"></span>
       </button>
     </nav>
 
     <!-- DASHBOARD PANEL -->
-    <div id="panel-dashboard">
+    <div id="panel-dashboard" role="tabpanel" aria-label="Dashboard">
       <main class="main">
 
         <!-- SIGNAL CARD -->
-        <section class="signal-card" id="signal-card">
+        <section class="signal-card" id="signal-card" aria-label="Trading signal">
           <div class="signal-top">
             <div class="signal-badge-wrap">
-              <div class="signal-badge" id="signal-badge">
+              <div class="signal-badge" id="signal-badge" role="status" aria-live="polite">
                 <span id="signal-text">LOADING</span>
               </div>
               <div class="signal-direction" id="signal-direction"></div>
             </div>
             <div class="signal-strength-block">
-              <div class="strength-label">Confluence</div>
-              <div class="strength-dots" id="strength-dots">
-                <span class="dot" id="dot-1"></span>
-                <span class="dot" id="dot-2"></span>
-                <span class="dot" id="dot-3"></span>
-                <span class="dot" id="dot-4"></span>
-                <span class="dot" id="dot-5"></span>
+              <div class="strength-label" id="confluence-label">Confluence</div>
+              <div class="strength-dots" id="strength-dots" role="meter" aria-label="Confluence strength" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0">
+                <span class="dot" id="dot-1" aria-hidden="true"></span>
+                <span class="dot" id="dot-2" aria-hidden="true"></span>
+                <span class="dot" id="dot-3" aria-hidden="true"></span>
+                <span class="dot" id="dot-4" aria-hidden="true"></span>
+                <span class="dot" id="dot-5" aria-hidden="true"></span>
               </div>
               <div class="strength-text" id="strength-text">0 / 5 conditions met</div>
             </div>
           </div>
-          <div class="signal-subtitle" id="signal-subtitle">Connecting to market data…</div>
+          <div class="signal-subtitle" id="signal-subtitle" role="status" aria-live="polite">Connecting to market data…</div>
           <!-- Enter Trade button — visible only when signal is active -->
           <div class="enter-trade-wrap" id="enter-trade-wrap" style="display:none">
-            <button class="enter-trade-btn" id="enter-trade-btn">
-              ⚡ Enter Trade at Market Price
+            <button class="enter-trade-btn" id="enter-trade-btn" aria-label="Enter trade at market price">
+              Enter Trade at Market Price
             </button>
             <div class="enter-trade-note">Records your entry and starts 30s exit monitoring</div>
           </div>
         </section>
 
         <!-- ACTIVE TRADE MONITORS — one card per open trade, rendered dynamically -->
-        <div id="trades-monitor-list"></div>
+        <div id="trades-monitor-list" role="region" aria-label="Active trades" aria-live="polite"></div>
 
         <!-- CAPITAL INPUT + TRADE PARAMS -->
-        <section class="trade-section">
+        <section class="trade-section" aria-label="Trade parameters">
           <div class="capital-row">
             <div class="capital-block">
               <label class="field-label" for="capital-input">Your Capital (USD)</label>
               <div class="capital-input-wrap">
-                <span class="currency-symbol">$</span>
+                <span class="currency-symbol" aria-hidden="true">$</span>
                 <input
                   type="number"
                   id="capital-input"
@@ -109,13 +111,14 @@
                   min="1"
                   step="100"
                   placeholder="5000"
+                  aria-label="Capital amount in USD"
                 />
               </div>
             </div>
             <div class="capital-note">10% of capital per trade</div>
           </div>
 
-          <div class="params-grid" id="params-grid">
+          <div class="params-grid" id="params-grid" role="group" aria-label="Trade parameters">
             <div class="param-card">
               <div class="param-label">Trade Size</div>
               <div class="param-value" id="param-trade-size">—</div>
@@ -150,20 +153,20 @@
         </section>
 
         <!-- CONDITIONS -->
-        <section class="conditions-section">
+        <section class="conditions-section" aria-label="Entry conditions">
           <div class="section-header">
             <h2 class="section-title">Entry Conditions</h2>
-            <span class="conditions-badge" id="conditions-badge">0 / 5</span>
+            <span class="conditions-badge" id="conditions-badge" role="status" aria-live="polite">0 / 5</span>
           </div>
-          <div class="conditions-list" id="conditions-list">
+          <div class="conditions-list" id="conditions-list" role="list" aria-label="Confluence conditions">
             <div class="condition-loading">Analyzing…</div>
           </div>
         </section>
 
         <!-- INDICATOR READINGS -->
-        <section class="indicators-section">
+        <section class="indicators-section" aria-label="Live indicator readings">
           <h2 class="section-title">Live Indicator Readings</h2>
-          <div class="indicators-grid" id="indicators-grid">
+          <div class="indicators-grid" id="indicators-grid" role="group" aria-label="Technical indicators">
             <div class="indicator-card">
               <div class="ind-name">EMA 10 (Fast)</div>
               <div class="ind-value" id="ind-ema10">—</div>
@@ -204,17 +207,17 @@
         </section>
 
         <!-- REFRESH STATUS -->
-        <section class="refresh-section">
+        <section class="refresh-section" aria-label="Refresh status">
           <div class="refresh-row">
             <div class="refresh-times">
-              <span>Last update: <strong id="last-update">—</strong></span>
-              <span>Next candle: <strong id="next-candle">—</strong></span>
+              <span>Last update: <strong id="last-update" role="status">—</strong></span>
+              <span>Next candle: <strong id="next-candle" role="timer">—</strong></span>
             </div>
-            <button class="refresh-btn" id="refresh-btn">
-              ↻ Refresh Now
+            <button class="refresh-btn" id="refresh-btn" aria-label="Refresh market data">
+              Refresh Now
             </button>
           </div>
-          <div class="countdown-bar-wrap">
+          <div class="countdown-bar-wrap" role="progressbar" aria-label="Time until next candle" aria-valuemin="0" aria-valuemax="100">
             <div class="countdown-bar" id="countdown-bar"></div>
           </div>
         </section>
@@ -223,23 +226,23 @@
     </div>
 
     <!-- HISTORY PANEL -->
-    <div id="panel-history" style="display:none">
-      <section class="history-section" id="history-section">
+    <div id="panel-history" style="display:none" role="tabpanel" aria-label="Trade history">
+      <section class="history-section" id="history-section" aria-label="Trade history">
         <div class="section-header">
           <h2 class="section-title">Trade History</h2>
           <div class="history-header-right">
-            <span class="history-count" id="history-count">0 trades</span>
-            <button class="export-history-btn" id="export-history-btn">⬇ Export JSON</button>
-            <button class="clear-history-btn" id="clear-history-btn">Clear All</button>
+            <span class="history-count" id="history-count" role="status">0 trades</span>
+            <button class="export-history-btn" id="export-history-btn" aria-label="Export trade history as JSON">Export JSON</button>
+            <button class="clear-history-btn" id="clear-history-btn" aria-label="Clear all trade history">Clear All</button>
           </div>
         </div>
-        <div class="history-list" id="history-list"></div>
+        <div class="history-list" id="history-list" role="list" aria-label="Closed trades"></div>
       </section>
     </div>
 
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
       <div class="footer-disclaimer">
-        ⚠️ This tool is for informational purposes only. Not financial advice.
+        This tool is for informational purposes only. Not financial advice.
         Always manage your risk. Past performance does not guarantee future results.
       </div>
       <div class="footer-meta" id="footer-meta"></div>
@@ -254,6 +257,6 @@
 
   <!-- Auth module must load before app.js so Auth global is available -->
   <script src="auth.js?v=1"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

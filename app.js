@@ -1116,7 +1116,12 @@ function renderTradeHistory() {
   list.innerHTML = '';
 
   if (history.length === 0) {
-    list.innerHTML = '<div class="history-empty">No closed trades yet.<br>Enter a trade and close it to see your history here.</div>';
+    list.innerHTML = `
+      <div class="history-empty">
+        <div class="history-empty-icon" aria-hidden="true">&#128200;</div>
+        <div class="history-empty-title">No trades yet</div>
+        <div class="history-empty-desc">When you enter and close a trade, your history will appear here with full P&amp;L tracking, duration, and export options.</div>
+      </div>`;
     return;
   }
 
@@ -1351,7 +1356,39 @@ function fmtUSD(n) {
 function el(id) { return document.getElementById(id); }
 
 function setSignalCard(signal) {
-  const card  = el('signal-card');
+  const card = el('signal-card');
+
+  // Restore signal card DOM if it was replaced by error state
+  if (!el('signal-badge')) {
+    card.innerHTML = `
+      <div class="signal-top">
+        <div class="signal-badge-wrap">
+          <div class="signal-badge" id="signal-badge" role="status" aria-live="polite">
+            <span id="signal-text">LOADING</span>
+          </div>
+          <div class="signal-direction" id="signal-direction"></div>
+        </div>
+        <div class="signal-strength-block">
+          <div class="strength-label" id="confluence-label">Confluence</div>
+          <div class="strength-dots" id="strength-dots" role="meter" aria-label="Confluence strength" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0">
+            <span class="dot" id="dot-1" aria-hidden="true"></span>
+            <span class="dot" id="dot-2" aria-hidden="true"></span>
+            <span class="dot" id="dot-3" aria-hidden="true"></span>
+            <span class="dot" id="dot-4" aria-hidden="true"></span>
+            <span class="dot" id="dot-5" aria-hidden="true"></span>
+          </div>
+          <div class="strength-text" id="strength-text">0 / 5 conditions met</div>
+        </div>
+      </div>
+      <div class="signal-subtitle" id="signal-subtitle" role="status" aria-live="polite">Connecting to market data…</div>
+      <div class="enter-trade-wrap" id="enter-trade-wrap" style="display:none">
+        <button class="enter-trade-btn" id="enter-trade-btn" aria-label="Enter trade at market price">Enter Trade at Market Price</button>
+        <div class="enter-trade-note">Records your entry and starts 30s exit monitoring</div>
+      </div>
+    `;
+    el('enter-trade-btn').addEventListener('click', enterTrade);
+  }
+
   const badge = el('signal-badge');
   const text  = el('signal-text');
   card.className  = 'signal-card';
@@ -1370,6 +1407,8 @@ function setDots(count, direction) {
       d.classList.add(direction === 'long' ? 'active-long' : 'active-short');
     }
   }
+  const dotsEl = el('strength-dots');
+  if (dotsEl) dotsEl.setAttribute('aria-valuenow', count);
 }
 
 function renderConditions(conditions, direction) {
@@ -1379,10 +1418,11 @@ function renderConditions(conditions, direction) {
     const row  = document.createElement('div');
     const icon = c.met ? (direction === 'long' ? '✅' : '🔵') : '❌';
     row.className = `condition-row${c.met ? (direction === 'long' ? ' met' : ' met-short') : ''}`;
+    row.setAttribute('role', 'listitem');
     row.innerHTML = `
-      <div class="condition-icon">${icon}</div>
+      <div class="condition-icon" aria-hidden="true">${icon}</div>
       <div class="condition-body">
-        <div class="condition-label">${c.label}</div>
+        <div class="condition-label">${c.met ? 'Met: ' : 'Not met: '}${c.label}</div>
         <div class="condition-detail">${c.detail}</div>
       </div>`;
     list.appendChild(row);
@@ -1584,7 +1624,9 @@ function switchTimeframe(tf) {
   // Timeframe switching is always allowed — each open trade monitors its own TF independently
   state.currentTimeframe = tf;
   document.querySelectorAll('.tf-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.tf === tf);
+    const isActive = b.dataset.tf === tf;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-pressed', isActive);
   });
   clearTimeout(state.refreshTimer);
   clearInterval(state.countdownInterval);
@@ -1597,7 +1639,9 @@ function switchTimeframe(tf) {
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-nav-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
+    const isActive = b.dataset.tab === tab;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', isActive);
   });
   el('panel-dashboard').style.display = tab === 'dashboard' ? '' : 'none';
   el('panel-history').style.display   = tab === 'history'   ? '' : 'none';
@@ -1645,12 +1689,31 @@ async function run() {
     const safeMsg = (err.message && !looksLikeHtml(err.message))
       ? err.message
       : `Market data unavailable for ${state.currentAsset}. Please try again later.`;
-    el('signal-subtitle').textContent =
-      `Could not load market data for ${state.currentAsset}: ${safeMsg}`;
+
+    // Render error state with retry button (Priority 4)
+    const signalCard = el('signal-card');
+    if (signalCard) {
+      signalCard.className = 'signal-card';
+      signalCard.innerHTML = `
+        <div class="error-state" role="alert">
+          <div class="error-state-icon" aria-hidden="true">&#9888;</div>
+          <div class="error-state-title">Unable to Load Market Data</div>
+          <div class="error-state-message">${safeMsg}</div>
+          <details class="error-state-details">
+            <summary>Technical details</summary>
+            <pre>${safeMsg}</pre>
+          </details>
+          <button class="error-state-retry" id="error-retry-btn" aria-label="Retry loading market data">Retry</button>
+        </div>
+      `;
+      const retryBtn = el('error-retry-btn');
+      if (retryBtn) retryBtn.addEventListener('click', manualRefresh);
+    }
+
     // Still update price display for context
     const priceEl = el('asset-price');
     if (priceEl) priceEl.textContent = '—';
-    el('enter-trade-wrap').style.display = 'none';
+    el('enter-trade-wrap')?.style && (el('enter-trade-wrap').style.display = 'none');
   } finally {
     btn.disabled    = false;
     btn.textContent = '↻ Refresh Now';
