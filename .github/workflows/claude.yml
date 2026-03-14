@@ -30,8 +30,11 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: "--model claude-sonnet-4-6"
 
-      - name: Create Pull Request automatically
-        run: |
-          gh pr create --fill --title "Claude: resolve #${{ github.event.issue.number }} — ${{ github.event.issue.title }}" --body "Closes #${{ github.event.issue.number }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Claude: resolve #${{ github.event.issue.number }} — ${{ github.event.issue.title }}"
+          title: "Claude: resolve #${{ github.event.issue.number }} — ${{ github.event.issue.title }}"
+          body: "Closes #${{ github.event.issue.number }}"
+          branch: claude/issue-${{ github.event.issue.number }}-${{ github.run_id }}
+          delete-branch: true
