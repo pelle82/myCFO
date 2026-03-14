@@ -60,6 +60,7 @@
         History
         <span class="tab-badge" id="history-tab-badge" style="display:none" aria-label="Trade count"></span>
       </button>
+      <button class="tab-nav-btn" data-tab="strategy" aria-selected="false" role="tab">Strategy</button>
     </nav>
 
     <!-- DASHBOARD PANEL -->
@@ -253,6 +254,430 @@
         </div>
         <div class="history-list" id="history-list" role="list" aria-label="Closed trades"></div>
       </section>
+    </div>
+
+    <!-- STRATEGY PANEL -->
+    <div id="panel-strategy" style="display:none" role="tabpanel" aria-label="Strategy guide">
+      <main class="main strategy-main">
+
+        <!-- INTRO -->
+        <section class="strategy-intro-card" aria-label="Strategy overview">
+          <div class="strategy-intro-header">
+            <div>
+              <h2 class="strategy-intro-title">Jaime Merino Strategy</h2>
+              <p class="strategy-intro-subtitle">Multi-timeframe momentum + trend confluence system</p>
+            </div>
+            <span class="strategy-version-badge">SqFlow v1.4</span>
+          </div>
+          <p class="strategy-intro-body">
+            This system identifies high-probability entries by requiring <strong>5 simultaneous confluence conditions</strong> across trend, momentum, volatility, and volume. A trade is only signalled when all five align — filtering out noise and keeping you on the right side of the dominant trend.
+          </p>
+          <div class="strategy-pillars">
+            <div class="strategy-pillar">
+              <span class="strategy-pillar-icon" aria-hidden="true">📈</span>
+              <span class="strategy-pillar-label">Trend</span>
+            </div>
+            <div class="strategy-pillar">
+              <span class="strategy-pillar-icon" aria-hidden="true">⚡</span>
+              <span class="strategy-pillar-label">Momentum</span>
+            </div>
+            <div class="strategy-pillar">
+              <span class="strategy-pillar-icon" aria-hidden="true">🎯</span>
+              <span class="strategy-pillar-label">Volatility</span>
+            </div>
+            <div class="strategy-pillar">
+              <span class="strategy-pillar-icon" aria-hidden="true">📊</span>
+              <span class="strategy-pillar-label">Volume</span>
+            </div>
+            <div class="strategy-pillar">
+              <span class="strategy-pillar-icon" aria-hidden="true">🛡️</span>
+              <span class="strategy-pillar-label">Risk Mgmt</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ENTRY CONDITIONS CARD -->
+        <section class="strategy-section" aria-label="Entry conditions explained">
+          <button class="strategy-accordion-header" aria-expanded="true" aria-controls="acc-entry">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">✅</span>
+              Entry Conditions (Confluence Score)
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-entry">
+            <p class="strategy-body-lead">The Dashboard shows a <strong>Confluence Score</strong> out of 5. A full score (5/5) is required before entering a trade. Each condition represents one pillar of the strategy.</p>
+            <div class="strategy-condition-list">
+
+              <div class="strategy-condition-item">
+                <div class="strategy-condition-header">
+                  <span class="strategy-condition-num">1</span>
+                  <span class="strategy-condition-name">EMA Trend Bias</span>
+                  <span class="strategy-signal-pill green">Trend</span>
+                </div>
+                <div class="strategy-condition-body">
+                  <p><strong>What it checks:</strong> Price must be above EMA55 (or within 3% of it) <em>and</em> EMA55 must be above EMA200 for a long signal. The reverse applies for shorts.</p>
+                  <p><strong>Why it matters:</strong> EMA55 defines the medium-term bias. EMA200 defines the macro trend. Trading in the direction of both EMAs means you're aligned with institutions and swing traders — dramatically improving your win rate.</p>
+                  <p><strong>What to look for:</strong> <span class="strategy-signal-pill green">GREEN</span> when price ≥ EMA55 and EMA55 > EMA200. Ideal setup is a bounce off EMA55 on a pullback.</p>
+                </div>
+              </div>
+
+              <div class="strategy-condition-item">
+                <div class="strategy-condition-header">
+                  <span class="strategy-condition-num">2</span>
+                  <span class="strategy-condition-name">ADX Trend Strength</span>
+                  <span class="strategy-signal-pill blue">Strength</span>
+                </div>
+                <div class="strategy-condition-body">
+                  <p><strong>What it checks:</strong> ADX(14) must be above 23 with a <em>rising slope</em> (increasing over the last 3 bars).</p>
+                  <p><strong>Why it matters:</strong> ADX measures how strong a trend is, not its direction. A reading above 23 confirms the market is trending (not choppy). The rising slope requirement means the trend is <em>accelerating</em> — the optimal moment to enter.</p>
+                  <p><strong>What to look for:</strong> <span class="strategy-signal-pill green">GREEN</span> when ADX &gt; 23 and rising. Values 25–40 are ideal. Above 40 the trend may be overextended. Below 20 = choppy, avoid trading.</p>
+                </div>
+              </div>
+
+              <div class="strategy-condition-item">
+                <div class="strategy-condition-header">
+                  <span class="strategy-condition-num">3</span>
+                  <span class="strategy-condition-name">RSI Not Overextended</span>
+                  <span class="strategy-signal-pill orange">Momentum</span>
+                </div>
+                <div class="strategy-condition-body">
+                  <p><strong>What it checks:</strong> RSI(14) must be below 70 for longs (not overbought) or above 30 for shorts (not oversold).</p>
+                  <p><strong>Why it matters:</strong> Entering when RSI is at an extreme means the move may already be exhausted. This filter keeps you from chasing. The ideal RSI for a long entry is 45–65 — strong but not overheated.</p>
+                  <p><strong>What to look for:</strong> <span class="strategy-signal-pill green">GREEN</span> when RSI is below 70 (long) or above 30 (short). <span class="strategy-signal-pill red">RED</span> means the market is overextended — wait for a reset.</p>
+                </div>
+              </div>
+
+              <div class="strategy-condition-item">
+                <div class="strategy-condition-header">
+                  <span class="strategy-condition-num">4</span>
+                  <span class="strategy-condition-name">Squeeze Momentum</span>
+                  <span class="strategy-signal-pill purple">Volatility</span>
+                </div>
+                <div class="strategy-condition-body">
+                  <p><strong>What it checks:</strong> The TTM Squeeze indicator must have fired (released from squeeze) or have positive/rising momentum histogram.</p>
+                  <p><strong>Why it matters:</strong> The TTM Squeeze detects when Bollinger Bands contract inside Keltner Channels — a "coiling" of volatility. When the squeeze fires (BBs expand outside KCs), price is ready to make a big directional move. This is the volatility catalyst that powers the entry.</p>
+                  <p><strong>What to look for:</strong> <span class="strategy-signal-pill green">GREEN</span> when squeeze has fired or momentum is positive. The most powerful setups occur right as the squeeze fires after a long compression period.</p>
+                </div>
+              </div>
+
+              <div class="strategy-condition-item">
+                <div class="strategy-condition-header">
+                  <span class="strategy-condition-num">5</span>
+                  <span class="strategy-condition-name">Price at Key Level / Vol POC</span>
+                  <span class="strategy-signal-pill yellow">Volume</span>
+                </div>
+                <div class="strategy-condition-body">
+                  <p><strong>What it checks:</strong> Price must be within 2.5% of the Volume Point of Control (VOL POC) or a key support/resistance level.</p>
+                  <p><strong>Why it matters:</strong> The VOL POC is the price level with the highest traded volume in the lookback window. Price gravitates toward this level and often reacts strongly from it — it acts as a magnet and a high-probability bounce zone.</p>
+                  <p><strong>What to look for:</strong> <span class="strategy-signal-pill green">GREEN</span> when price is within 2.5% of the VOL POC. Best entries occur when price pulls back to this level while all other conditions are met.</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- SIGNAL CARD EXPLANATION -->
+        <section class="strategy-section" aria-label="Signal card explained">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-signal">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">🚦</span>
+              Signal Card &amp; Confluence Score
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-signal" hidden>
+            <div class="strategy-info-grid">
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">LONG Signal</div>
+                <div class="strategy-info-desc">All 5 conditions align bullish. Price likely to move up. The signal badge turns green with ▲ arrow.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">SHORT Signal</div>
+                <div class="strategy-info-desc">All 5 conditions align bearish. Price likely to move down. The signal badge turns red with ▼ arrow.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">WAIT Signal</div>
+                <div class="strategy-info-desc">Fewer than 5 conditions met. No trade — the setup is not fully confirmed. Stay patient.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Confluence Dots</div>
+                <div class="strategy-info-desc">5 dots represent the 5 conditions. Each lights up when its condition is met. All 5 lit = valid signal.</div>
+              </div>
+            </div>
+            <p class="strategy-body-lead" style="margin-top: var(--space-md);">The confluence approach eliminates most false signals. A single indicator can be wrong; five aligned indicators rarely are.</p>
+          </div>
+        </section>
+
+        <!-- LIVE INDICATORS SECTION -->
+        <section class="strategy-section" aria-label="Indicators explained">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-indicators">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">📡</span>
+              Live Indicator Readings
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-indicators" hidden>
+            <p class="strategy-body-lead">The Live Indicator Readings card shows real-time computed values for all 9 indicators used in the strategy. Here's what each means:</p>
+
+            <div class="strategy-indicator-cards">
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">EMA 10 <span class="strategy-ind-tag">Fast</span></span>
+                  <span class="strategy-signal-pill blue">Trend</span>
+                </div>
+                <p><strong>Calculation:</strong> Exponential Moving Average of the last 10 candle closes. More weight is given to recent candles.</p>
+                <p><strong>Purpose:</strong> Short-term momentum filter. When EMA10 crosses above EMA55, it signals short-term bullish momentum aligning with the medium-term bias.</p>
+                <p><strong>In this strategy:</strong> Used to confirm that fast price action is in sync with the trend. EMA10 &gt; EMA55 = bullish micro-momentum.</p>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">EMA 55 <span class="strategy-ind-tag">Bias</span></span>
+                  <span class="strategy-signal-pill green">Core</span>
+                </div>
+                <p><strong>Calculation:</strong> Exponential Moving Average of the last 55 candle closes. Reacts faster than the 200 EMA but slower than EMA10.</p>
+                <p><strong>Purpose:</strong> The primary trend bias indicator. Jaime Merino uses EMA55 as the "line in the sand" — price above it = bullish bias, price below = bearish bias.</p>
+                <p><strong>In this strategy:</strong> Acts as a dynamic support/resistance level. Pullbacks to EMA55 in an uptrend are ideal entry zones (the "bounce"). Within 3% of EMA55 counts as valid.</p>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">EMA 200 <span class="strategy-ind-tag">Macro</span></span>
+                  <span class="strategy-signal-pill orange">Filter</span>
+                </div>
+                <p><strong>Calculation:</strong> Exponential Moving Average of the last 200 candle closes. Slow-moving, rarely changes direction quickly.</p>
+                <p><strong>Purpose:</strong> The macro trend filter. Institutional traders and funds watch the EMA200 closely. Price above EMA200 = bull market structure; below = bear market structure.</p>
+                <p><strong>In this strategy:</strong> EMA55 must be above EMA200 for longs (and below for shorts). This ensures you're trading with the big picture, not against it.</p>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">RSI (14) <span class="strategy-ind-tag">Oscillator</span></span>
+                  <span class="strategy-signal-pill orange">Momentum</span>
+                </div>
+                <p><strong>Calculation:</strong> Relative Strength Index over 14 periods. Compares average gains vs average losses, normalized to a 0–100 scale.</p>
+                <p><strong>Purpose:</strong> Measures whether price is overbought (&gt;70) or oversold (&lt;30). The strategy uses it as a filter, not a trigger.</p>
+                <p><strong>In this strategy:</strong> RSI must be below 70 for longs (room to run) and above 30 for shorts. Ideal long entry zone: RSI between 45–65. This prevents chasing extended moves.</p>
+                <div class="strategy-threshold-row">
+                  <span class="strategy-threshold danger">&gt; 70 = Overbought (avoid longs)</span>
+                  <span class="strategy-threshold success">45–65 = Ideal long zone</span>
+                  <span class="strategy-threshold danger">&lt; 30 = Oversold (avoid shorts)</span>
+                </div>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">ADX (14) <span class="strategy-ind-tag">Strength</span></span>
+                  <span class="strategy-signal-pill blue">Trend</span>
+                </div>
+                <p><strong>Calculation:</strong> Average Directional Index over 14 periods. Derived from +DI and −DI directional indicators. Measures trend strength, not direction.</p>
+                <p><strong>Purpose:</strong> Confirms the market is actually trending (not ranging/choppy). A trend-following strategy only works when there IS a trend.</p>
+                <p><strong>In this strategy:</strong> ADX must exceed 23 AND be rising (slope positive over 3 bars). The rising requirement is key — it means the trend is strengthening, not weakening.</p>
+                <div class="strategy-threshold-row">
+                  <span class="strategy-threshold danger">&lt; 20 = No trend (choppy)</span>
+                  <span class="strategy-threshold yellow">20–23 = Weak trend (borderline)</span>
+                  <span class="strategy-threshold success">&gt; 23 ↑ = Valid (trending + accelerating)</span>
+                  <span class="strategy-threshold warning">&gt; 40 = Strong but possibly overextended</span>
+                </div>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">BB Upper &amp; BB Lower <span class="strategy-ind-tag">Bands</span></span>
+                  <span class="strategy-signal-pill purple">Volatility</span>
+                </div>
+                <p><strong>Calculation:</strong> Bollinger Bands = 20-period SMA ± 2 standard deviations. Upper band = SMA + 2σ, Lower band = SMA − 2σ.</p>
+                <p><strong>Purpose:</strong> Measure price volatility and identify overextension. Bands expand in high volatility and contract in low volatility (squeeze).</p>
+                <p><strong>In this strategy:</strong> Used as part of the Squeeze calculation. When BBs contract inside Keltner Channels, a squeeze is forming. BB Upper and Lower values shown as reference price levels for gauging how extended price is relative to the band envelope.</p>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">Squeeze <span class="strategy-ind-tag">TTM</span></span>
+                  <span class="strategy-signal-pill purple">Volatility</span>
+                </div>
+                <p><strong>Calculation:</strong> TTM Squeeze by John Carter. Compares Bollinger Bands width to Keltner Channel width. When BBs are inside KCs = ON (squeeze active). When BBs expand outside KCs = FIRED (momentum release). Histogram = linear regression of momentum.</p>
+                <p><strong>Purpose:</strong> Identifies periods of volatility compression followed by explosive breakouts. The squeeze is like a coiled spring — the longer the compression, the more powerful the release.</p>
+                <p><strong>In this strategy:</strong> Condition 4 checks if the squeeze has fired or if momentum histogram is positive/rising. Best entries: squeeze fires in the direction of the EMA trend bias.</p>
+                <div class="strategy-threshold-row">
+                  <span class="strategy-threshold warning">ON = Volatility compressed, stand by</span>
+                  <span class="strategy-threshold success">FIRED ↑ = Breakout in progress — look to enter</span>
+                  <span class="strategy-threshold danger">FIRED ↓ = Breakdown in progress</span>
+                </div>
+              </div>
+
+              <div class="strategy-ind-card">
+                <div class="strategy-ind-header">
+                  <span class="strategy-ind-name">Vol POC <span class="strategy-ind-tag">Volume Profile</span></span>
+                  <span class="strategy-signal-pill yellow">Volume</span>
+                </div>
+                <p><strong>Calculation:</strong> Volume Point of Control — the price level where the most volume was traded in the last 300 candles. Calculated by dividing the price range into buckets and summing volume at each level.</p>
+                <p><strong>Purpose:</strong> High-volume price levels act as magnets — price frequently returns to them and reacts (bounces or breaks) from them. The POC represents "fair value" in the eyes of the market.</p>
+                <p><strong>In this strategy:</strong> Condition 5 checks if price is within 2.5% of the VOL POC. Trading near the POC increases the probability of a clean reaction. Ideal setup: price pulls back to POC while all trend and momentum conditions are met.</p>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- TRADE PARAMETERS SECTION -->
+        <section class="strategy-section" aria-label="Trade parameters explained">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-params">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">📐</span>
+              Trade Parameters &amp; Risk Management
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-params" hidden>
+            <p class="strategy-body-lead">The trade parameter card calculates your position sizing and levels automatically based on your capital input and the Jaime Merino risk rules.</p>
+            <div class="strategy-info-grid">
+              <div class="strategy-info-card highlight">
+                <div class="strategy-info-label">Position Size</div>
+                <div class="strategy-info-value accent">10% of Capital</div>
+                <div class="strategy-info-desc">Never risk your entire account on one trade. 10% keeps any single loss manageable and allows you to take multiple concurrent positions.</div>
+              </div>
+              <div class="strategy-info-card highlight">
+                <div class="strategy-info-label">Stop Loss</div>
+                <div class="strategy-info-value danger">−7% from Entry</div>
+                <div class="strategy-info-desc">A fixed 7% stop loss from entry price. This gives the trade room to breathe while defining your maximum loss before the thesis is invalidated.</div>
+              </div>
+              <div class="strategy-info-card highlight">
+                <div class="strategy-info-label">Take Profit</div>
+                <div class="strategy-info-value success">+21% from Entry</div>
+                <div class="strategy-info-desc">A 1:3 risk-reward ratio. For every dollar risked, you target 3 dollars in profit. This means you only need to be right ~33% of the time to break even.</div>
+              </div>
+              <div class="strategy-info-card highlight">
+                <div class="strategy-info-label">Partial Scale-Out</div>
+                <div class="strategy-info-value accent">+14% (1:2 R/R)</div>
+                <div class="strategy-info-desc">Optional: close 50% of the position at 1:2 R/R (+14%) to lock in profit and reduce risk on the remaining position to breakeven.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Max Loss per Trade</div>
+                <div class="strategy-info-desc">With 10% position size and 7% stop loss, your maximum loss per trade is 0.7% of total capital. This keeps drawdowns controlled even on losing streaks.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Leverage</div>
+                <div class="strategy-info-desc">Calculated automatically based on your capital. Leverage amplifies both gains and losses — always ensure your stop loss is set before entering.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ACTIVE TRADES SECTION -->
+        <section class="strategy-section" aria-label="Active trades explained">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-active">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">⚡</span>
+              Active Trades Tab
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-active" hidden>
+            <p class="strategy-body-lead">The Active Trades tab monitors all open positions in real-time. Each trade card shows:</p>
+            <div class="strategy-info-grid">
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Entry Price</div>
+                <div class="strategy-info-desc">The price at which you entered the trade when you clicked "Enter Trade at Market Price".</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Current P&amp;L</div>
+                <div class="strategy-info-desc">Live unrealized profit or loss as a percentage and dollar amount based on current market price.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Stop Loss Level</div>
+                <div class="strategy-info-desc">The exact price level where you should exit if the trade goes against you (entry − 7%).</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Take Profit Level</div>
+                <div class="strategy-info-desc">The exact price target for closing the trade at full profit (entry + 21%).</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Auto-Alert</div>
+                <div class="strategy-info-desc">SqFlow monitors the trade every 30 seconds and alerts you when price approaches your stop loss or take profit levels.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Close Trade</div>
+                <div class="strategy-info-desc">Manually close the trade at market price at any time. The trade moves to History with full P&amp;L details.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HISTORY SECTION -->
+        <section class="strategy-section" aria-label="History tab explained">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-history">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">📋</span>
+              History Tab &amp; Trade Journal
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-history" hidden>
+            <p class="strategy-body-lead">The History tab is your personal trade journal. Every closed trade is logged with full details for review and performance tracking.</p>
+            <div class="strategy-info-grid">
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Trade Log</div>
+                <div class="strategy-info-desc">Each entry shows asset, direction (long/short), entry and exit prices, P&amp;L percentage and dollar amount, and duration.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Export JSON</div>
+                <div class="strategy-info-desc">Download your entire trade history as a JSON file for analysis in Excel, Python, or a trading journal app.</div>
+              </div>
+              <div class="strategy-info-card">
+                <div class="strategy-info-label">Win Rate Tracking</div>
+                <div class="strategy-info-desc">Review your wins and losses over time. With a 1:3 R/R ratio, a 35%+ win rate is profitable long-term.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TIMEFRAMES -->
+        <section class="strategy-section" aria-label="Timeframe guide">
+          <button class="strategy-accordion-header" aria-expanded="false" aria-controls="acc-tf">
+            <span class="strategy-acc-title">
+              <span class="strategy-acc-icon" aria-hidden="true">⏱️</span>
+              Timeframe Guide
+            </span>
+            <span class="strategy-acc-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="strategy-accordion-body" id="acc-tf" hidden>
+            <p class="strategy-body-lead">SqFlow supports four timeframes. Each serves a different trading style while using the same strategy rules.</p>
+            <div class="strategy-tf-grid">
+              <div class="strategy-tf-card">
+                <div class="strategy-tf-label">1H</div>
+                <div class="strategy-tf-name">Intraday</div>
+                <div class="strategy-tf-desc">Short-term swing trades. Higher signal frequency but more noise. Best for active traders who can monitor positions throughout the day.</div>
+              </div>
+              <div class="strategy-tf-card active">
+                <div class="strategy-tf-label">4H</div>
+                <div class="strategy-tf-name">Default ★</div>
+                <div class="strategy-tf-desc">The primary timeframe used by Jaime Merino. Best balance of signal quality and frequency. Trades typically last 1–5 days.</div>
+              </div>
+              <div class="strategy-tf-card">
+                <div class="strategy-tf-label">1D</div>
+                <div class="strategy-tf-name">Swing</div>
+                <div class="strategy-tf-desc">Daily timeframe for swing trades. High-quality signals with lower frequency. Trades last days to weeks. Lower stress, wider stops needed.</div>
+              </div>
+              <div class="strategy-tf-card">
+                <div class="strategy-tf-label">1W</div>
+                <div class="strategy-tf-name">Position</div>
+                <div class="strategy-tf-desc">Weekly signals for position trading. Rare but high-conviction setups. Trades last weeks to months. Best for longer-term investors.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DISCLAIMER -->
+        <div class="strategy-disclaimer" role="note" aria-label="Disclaimer">
+          <strong>Disclaimer:</strong> SqFlow is an informational tool only. It does not constitute financial advice. All trading involves risk. Past signal performance does not guarantee future results. Always use proper risk management and never risk more than you can afford to lose.
+        </div>
+
+      </main>
     </div>
 
     <footer class="footer" role="contentinfo">

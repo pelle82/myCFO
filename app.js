@@ -1767,6 +1767,7 @@ function switchTab(tab) {
   el('panel-dashboard').style.display    = tab === 'dashboard'    ? '' : 'none';
   el('panel-activetrades').style.display = tab === 'activetrades' ? '' : 'none';
   el('panel-history').style.display      = tab === 'history'      ? '' : 'none';
+  el('panel-strategy').style.display     = tab === 'strategy'     ? '' : 'none';
 
   // Hide asset selector on non-dashboard tabs — prevents confusing pair-switch
   // flicker in Active Trades and History where the selected pair is irrelevant.
@@ -2054,6 +2055,18 @@ function bindEvents() {
   // Asset selector
   const trigger = el('asset-selector-trigger');
   if (trigger) trigger.addEventListener('click', () => toggleAssetSelector());
+
+  // Strategy accordion
+  document.querySelectorAll('.strategy-accordion-header').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bodyId = btn.getAttribute('aria-controls');
+      const body   = document.getElementById(bodyId);
+      if (!body) return;
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', !expanded);
+      body.hidden = expanded;
+    });
+  });
 }
 
 function init() {
