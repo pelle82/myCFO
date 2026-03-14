@@ -30,7 +30,7 @@ SqFlow is a real-time trading signal engine that implements the **Jaime Merino S
 - **Multi-trade support** — run concurrent positions across different instruments
 
 ### Authentication & Cloud Sync
-- **Firebase Auth** — Google, Apple, and X (Twitter) OAuth + email/password
+- **Firebase Auth** — Google OAuth + email/password
 - **Firestore cloud sync** — active trades and history available across devices
 - **Guest mode** — fully functional without authentication; seamless migration to account on sign-in
 - **Security** — brute-force rate limiting (5 attempts/min), strict password policy, sanitized error messages
