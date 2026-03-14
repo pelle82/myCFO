@@ -2,7 +2,7 @@ name: Claude Autonomous Task
 description: Create a task for @claude to implement it 100% autonomously
 title: "[Task] "
 labels: ["claude"]
-assignees: ["@thebraindamag3"]
+assignees: ["thebraindamag3"]
 body:
   - type: markdown
     attributes:
