@@ -2,7 +2,7 @@ name: Claude Autonomous Task
 description: Create a task for @claude to implement it 100% autonomously
 title: "[Task] "
 labels: ["claude"]
-assignees: ["@thebraindamag3"]   # ← Change to your GitHub username or leave empty
+assignees: ["@thebraindamag3"]
 body:
   - type: markdown
     attributes:
@@ -13,15 +13,10 @@ body:
     id: description
     attributes:
       label: Task Description
-      description: Explain exactly what you want Claude to do (you can write in English or Spanish)
-      placeholder: I want to add a login system with Supabase...
+      description: Explain exactly what you want Claude to do
+      placeholder: I want to add a smile emoji at the end of my name...
       value: |
         [REPLACE THIS WITH YOUR TASK DESCRIPTION]
-    validations:
-      required: true
-  - type: markdown
-    attributes:
-      value: |
         @claude implement this in a fully autonomous way and without asking me for any confirmation.
         First, post a brief plan in a comment, then execute everything yourself:
         - Create a new branch
@@ -31,3 +26,5 @@ body:
         - Include "Closes #XXX" in the commit body
         - Open the Pull Request directly
         Do not ask me anything. Proceed directly.
+    validations:
+      required: true
