@@ -14,14 +14,20 @@
 // ============================================================
 
 // ── Firebase project configuration ───────────────────────────
-// Loaded at build time from Vite environment variables (VITE_FIREBASE_*).
-// Copy .env.example to .env and fill in your Firebase credentials.
-// See .env.example for the required keys.
-import { firebaseConfig } from './src/lib/firebase-config';
-import { initializeApp } from 'firebase/app';
-
-const app = initializeApp(firebaseConfig);
-let FIREBASE_CONFIG = firebaseConfig;
+// Set window.SQFLOW_FIREBASE_CONFIG before this script loads to enable
+// Google OAuth and email/password sign-in. Without it, the app runs in
+// guest-only mode (sign-in modal is still shown; only "Continue as Guest" works).
+//
+// Example — add this inline script in index.html before auth.js:
+//   <script>
+//     window.SQFLOW_FIREBASE_CONFIG = {
+//       apiKey: "...", authDomain: "...", projectId: "...",
+//       storageBucket: "...", messagingSenderId: "...", appId: "..."
+//     };
+//   </script>
+let FIREBASE_CONFIG = (typeof window !== 'undefined' && window.SQFLOW_FIREBASE_CONFIG)
+  ? window.SQFLOW_FIREBASE_CONFIG
+  : null;
 
 // ── Rate-limiting constants ───────────────────────────────────
 // Brute-force protection: max 5 email/password sign-in attempts per minute per browser.
@@ -145,6 +151,7 @@ const Auth = (() => {
     }
 
     try {
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       _auth = firebase.auth();
       _db   = firebase.firestore();
 
@@ -625,4 +632,11 @@ const Auth = (() => {
 })();
 
 // ── Boot ──────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => Auth.init());
+// auth.js is loaded at the bottom of <body>, so the DOM is already interactive.
+// Initialising synchronously here ensures the auth overlay appears before app.js
+// renders the dashboard, preventing any flash of unauthenticated content.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Auth.init());
+} else {
+  Auth.init();
+}
