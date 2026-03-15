@@ -47,6 +47,7 @@ const _AUTH_RATE = {
 const _AUTH_KEYS = {
   ATTEMPTS:      'sqFlow_loginAttempts',
   LOCKOUT_UNTIL: 'sqFlow_lockoutUntil',
+  USER_ID:       'sqFlow_userId',       // UID of the user whose data is in localStorage
 };
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -205,10 +206,11 @@ const Auth = (() => {
         if (user) {
           await _syncFromCloud();
         } else if (prevUser !== null) {
-          // Explicit logout (prevUser was a real user, not initial page load).
-          // Clear cached trade data so it never bleeds into the next user's session.
-          localStorage.removeItem('sqFlow_activeTrades');
-          localStorage.removeItem('sqFlow_tradeHistory');
+          // Explicit logout or session expiry — clear in-memory state immediately.
+          // localStorage is intentionally kept: it is tagged with sqFlow_userId so
+          // _syncFromCloud() can detect a returning same user and restore their data
+          // without relying solely on Firestore. A different user logging in will
+          // trigger a UID-mismatch clear inside _syncFromCloud().
           if (typeof state !== 'undefined') state.activeTrades = [];
           if (typeof stopTradeMonitor   === 'function') stopTradeMonitor();
           if (typeof renderTradeMonitors === 'function') renderTradeMonitors();
@@ -249,29 +251,73 @@ const Auth = (() => {
   // Loads trade data from Firestore and updates localStorage,
   // then triggers app re-render. Authenticated users have their
   // data available across devices and deploys.
+  //
+  // Strategy:
+  //   1. Firestore is the source of truth — if documents exist, always use them.
+  //   2. If Firestore has no documents, check whether localStorage is already
+  //      tagged for this same user (sqFlow_userId). If so, the user's trades
+  //      never made it to Firestore (e.g. failed write) — keep them and sync
+  //      them up to Firestore now. If a different UID is stored, clear the
+  //      stale data so it cannot bleed into the new session.
+  //   3. On any Firestore read failure, apply the same UID-match check so that
+  //      a network hiccup does not silently wipe the user's localStorage trades.
   async function _syncFromCloud() {
     if (!_db || !_user) return;
+    const uid       = _user.uid;
+    const storedUid = localStorage.getItem(_AUTH_KEYS.USER_ID);
+
     try {
-      const uid = _user.uid;
       const [tradesDoc, histDoc] = await Promise.all([
         _db.collection('users').doc(uid).collection('state').doc('activeTrades').get(),
         _db.collection('users').doc(uid).collection('state').doc('tradeHistory').get(),
       ]);
 
-      // Always overwrite localStorage so a new user never sees a previous user's data.
-      localStorage.setItem('sqFlow_activeTrades', JSON.stringify(tradesDoc.exists ? (tradesDoc.data().trades || []) : []));
-      localStorage.setItem('sqFlow_tradeHistory', JSON.stringify(histDoc.exists  ? (histDoc.data().history  || []) : []));
-
-      // Reload app data from updated localStorage
-      if (typeof loadTrades         === 'function') loadTrades();
-      if (typeof renderTradeMonitors === 'function') renderTradeMonitors();
-      if (typeof renderTradeHistory  === 'function') renderTradeHistory();
-      if (typeof ensureMonitorRunning === 'function' &&
-          typeof state !== 'undefined' && state.activeTrades?.length > 0) {
-        ensureMonitorRunning();
+      if (tradesDoc.exists || histDoc.exists) {
+        // Firestore has data — it is the source of truth.
+        localStorage.setItem('sqFlow_activeTrades', JSON.stringify(tradesDoc.exists ? (tradesDoc.data().trades || []) : []));
+        localStorage.setItem('sqFlow_tradeHistory',  JSON.stringify(histDoc.exists  ? (histDoc.data().history  || []) : []));
+      } else {
+        // No Firestore documents yet for this user.
+        if (storedUid === uid) {
+          // Same user: localStorage may have trades that were never written to
+          // Firestore (e.g. a previous write failed). Preserve them and sync up.
+          const localTrades  = _parseLs('sqFlow_activeTrades', []);
+          const localHistory = _parseLs('sqFlow_tradeHistory',  []);
+          if (localTrades.length > 0 || localHistory.length > 0) {
+            console.log('[SqFlow Auth] Syncing local trades to Firestore (was never persisted).');
+            await Promise.all([
+              _db.collection('users').doc(uid).collection('state').doc('activeTrades')
+                 .set({ trades: localTrades, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }),
+              _db.collection('users').doc(uid).collection('state').doc('tradeHistory')
+                 .set({ history: localHistory, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }),
+            ]).catch(e => console.warn('[SqFlow Auth] Sync-back to Firestore failed:', e));
+          }
+          // localStorage is already correct — no overwrite needed.
+        } else {
+          // Different (or no) previous user — clear stale data to prevent bleeding.
+          localStorage.setItem('sqFlow_activeTrades', JSON.stringify([]));
+          localStorage.setItem('sqFlow_tradeHistory',  JSON.stringify([]));
+        }
       }
     } catch (e) {
       console.error('[SqFlow Auth] Cloud sync failed:', e);
+      // On error, keep localStorage if it belongs to this user; clear it otherwise.
+      if (storedUid !== uid) {
+        localStorage.setItem('sqFlow_activeTrades', JSON.stringify([]));
+        localStorage.setItem('sqFlow_tradeHistory',  JSON.stringify([]));
+      }
+    }
+
+    // Tag localStorage so returning logins can detect same-user data.
+    localStorage.setItem(_AUTH_KEYS.USER_ID, uid);
+
+    // Reload app data from updated localStorage
+    if (typeof loadTrades          === 'function') loadTrades();
+    if (typeof renderTradeMonitors  === 'function') renderTradeMonitors();
+    if (typeof renderTradeHistory   === 'function') renderTradeHistory();
+    if (typeof ensureMonitorRunning === 'function' &&
+        typeof state !== 'undefined' && state.activeTrades?.length > 0) {
+      ensureMonitorRunning();
     }
   }
 
@@ -384,12 +430,12 @@ const Auth = (() => {
 
   async function signOut() {
     if (_auth && _user) {
-      // Eagerly clear local trade data BEFORE calling _auth.signOut() so the
-      // cleanup is guaranteed regardless of when onAuthStateChanged fires.
-      // Without this, a race condition allows the next user's session to
-      // inherit or migrate the previous user's localStorage trades.
-      localStorage.removeItem('sqFlow_activeTrades');
-      localStorage.removeItem('sqFlow_tradeHistory');
+      // Clear in-memory state immediately for privacy — the current session
+      // should not continue to show trades after the user signs out.
+      // We deliberately do NOT remove localStorage here: the sqFlow_userId tag
+      // lets _syncFromCloud() on the next login distinguish a returning same user
+      // (keep localStorage data) from a different user (wipe it). Wiping eagerly
+      // would cause the returning same user to lose un-synced trades.
       if (typeof state              !== 'undefined') state.activeTrades = [];
       if (typeof stopTradeMonitor    === 'function') stopTradeMonitor();
       if (typeof renderTradeMonitors === 'function') renderTradeMonitors();
