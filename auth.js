@@ -447,6 +447,7 @@ const Auth = (() => {
 
   function _showAuthModal() {
     if (!_modal) _buildModal();
+    else _rebuildModal();
     _modal.style.display = 'flex';
   }
 
